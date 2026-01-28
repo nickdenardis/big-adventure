@@ -54,14 +54,6 @@ export default class OceanScene extends Phaser.Scene {
         // Add some visual depth markers
         this.addOceanDetails();
 
-        // Add title
-        const title = this.add.text(20, 20, 'THE BIG ADVENTURE - Level 1: Ocean Chase', {
-            fontSize: '24px',
-            color: '#ffffff',
-            fontStyle: 'bold',
-        });
-        title.setScrollFactor(0);
-
         // Create physics groups
         this.obstacleGroup = this.physics.add.group();
         this.collectibleGroup = this.physics.add.group();
@@ -101,43 +93,10 @@ export default class OceanScene extends Phaser.Scene {
         this.cameras.main.setBounds(0, 0, this.levelWidth, 720);
         this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
         this.cameras.main.setDeadzone(200, 200);
-        
-        // Create HUD
-        this.createHUD();
     }
 
     private createHUD() {
-        // Health
-        const healthText = this.add.text(20, 60, '', {
-            fontSize: '18px',
-            color: '#ff0000',
-        });
-        healthText.setScrollFactor(0);
-        healthText.setName('healthText');
-
-        // Coins
-        const coinsText = this.add.text(20, 85, '', {
-            fontSize: '18px',
-            color: '#ffd700',
-        });
-        coinsText.setScrollFactor(0);
-        coinsText.setName('coinsText');
-
-        // Air
-        const airText = this.add.text(20, 110, '', {
-            fontSize: '18px',
-            color: '#87ceeb',
-        });
-        airText.setScrollFactor(0);
-        airText.setName('airText');
-
-        // Distance
-        const distanceText = this.add.text(20, 135, '', {
-            fontSize: '18px',
-            color: '#ffffff',
-        });
-        distanceText.setScrollFactor(0);
-        distanceText.setName('distanceText');
+        // HUD is now handled by React - no longer needed in Phaser
     }
 
     private addOceanDetails() {
@@ -300,28 +259,18 @@ export default class OceanScene extends Phaser.Scene {
     }
 
     private updateHUD() {
-        const healthText = this.children.getByName('healthText') as Phaser.GameObjects.Text;
-        const coinsText = this.children.getByName('coinsText') as Phaser.GameObjects.Text;
-        const airText = this.children.getByName('airText') as Phaser.GameObjects.Text;
-        const distanceText = this.children.getByName('distanceText') as Phaser.GameObjects.Text;
-
-        if (healthText) {
-            const hearts = '♥'.repeat(Math.ceil(this.player.health));
-            healthText.setText(`Health: ${hearts} (${Math.floor(this.player.health)}/${this.player.maxHealth})`);
-        }
-
-        if (coinsText) {
-            coinsText.setText(`Coins: ${this.player.coins}`);
-        }
-
-        if (airText) {
-            const airBar = '█'.repeat(Math.floor(this.player.air / 10));
-            airText.setText(`Air: ${airBar} (${Math.floor(this.player.air)}%)`);
-        }
-
-        if (distanceText) {
-            const distanceMeters = Math.floor(this.player.sprite.x / 10);
-            distanceText.setText(`Distance: ${distanceMeters}m / ${this.levelWidth / 10}m`);
+        // Update React HUD using global callback
+        if ((window as any).updateGameState) {
+            (window as any).updateGameState({
+                health: this.player.health,
+                maxHealth: this.player.maxHealth,
+                coins: this.player.coins,
+                air: this.player.air,
+                maxAir: this.player.maxAir,
+                distance: Math.floor(this.player.sprite.x / 10),
+                maxDistance: this.levelWidth / 10,
+                characterName: 'SmileyFaceBob',
+            });
         }
     }
 
