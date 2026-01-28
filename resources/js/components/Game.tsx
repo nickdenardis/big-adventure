@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Phaser from 'phaser';
 import OceanScene from '../game/scenes/OceanScene';
 import HUD from './HUD';
+import CharacterSelect from './CharacterSelect';
 
 interface GameState {
     health: number;
@@ -20,6 +21,8 @@ interface GameState {
 export default function Game() {
     const gameRef = useRef<Phaser.Game | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const [showCharacterSelect, setShowCharacterSelect] = useState(true);
+    const [selectedCharacter, setSelectedCharacter] = useState<string>('SmileyFaceBob');
     const [gameState, setGameState] = useState<GameState>({
         health: 5,
         maxHealth: 5,
@@ -31,13 +34,21 @@ export default function Game() {
         characterName: 'SmileyFaceBob',
     });
 
+    const handleStartGame = (character: string) => {
+        setSelectedCharacter(character);
+        setShowCharacterSelect(false);
+    };
+
     useEffect(() => {
-        if (!containerRef.current || gameRef.current) return;
+        if (showCharacterSelect || !containerRef.current || gameRef.current) return;
 
         // Set up global callback for Phaser to update React
         (window as any).updateGameState = (newState: GameState) => {
             setGameState(newState);
         };
+
+        // Store selected character in global so scene can access it
+        (window as any).selectedCharacter = selectedCharacter;
 
         const config: Phaser.Types.Core.GameConfig = {
             type: Phaser.AUTO,
@@ -59,10 +70,15 @@ export default function Game() {
 
         return () => {
             (window as any).updateGameState = null;
+            (window as any).selectedCharacter = null;
             gameRef.current?.destroy(true);
             gameRef.current = null;
         };
-    }, []);
+    }, [showCharacterSelect, selectedCharacter]);
+
+    if (showCharacterSelect) {
+        return <CharacterSelect onStart={handleStartGame} />;
+    }
 
     return (
         <div className="relative">

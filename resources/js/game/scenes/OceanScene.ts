@@ -5,12 +5,12 @@ import Collectible from '../entities/Collectible';
 
 export default class OceanScene extends Phaser.Scene {
     private player!: Player;
-    private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private wasdKeys!: {
         W: Phaser.Input.Keyboard.Key;
         A: Phaser.Input.Keyboard.Key;
         S: Phaser.Input.Keyboard.Key;
         D: Phaser.Input.Keyboard.Key;
+        SPACE: Phaser.Input.Keyboard.Key;
     };
     private enemyBoat!: Phaser.GameObjects.Sprite;
     private levelWidth: number = 5000;
@@ -33,6 +33,8 @@ export default class OceanScene extends Phaser.Scene {
     }
 
     create() {
+        // Get selected character from global
+        const selectedCharacter = (window as any).selectedCharacter || 'SmileyFaceBob';
         // Set world bounds (scrolling level)
         this.physics.world.setBounds(0, 0, this.levelWidth, 720);
 
@@ -58,8 +60,8 @@ export default class OceanScene extends Phaser.Scene {
         this.obstacleGroup = this.physics.add.group();
         this.collectibleGroup = this.physics.add.group();
 
-        // Create player (SmileyFaceBob)
-        this.player = new Player(this, 200, 360, 'SmileyFaceBob');
+        // Create player with selected character
+        this.player = new Player(this, 200, 360, selectedCharacter);
 
         // Create enemy boat
         this.createEnemyBoat();
@@ -70,6 +72,7 @@ export default class OceanScene extends Phaser.Scene {
             A: Phaser.Input.Keyboard.KeyCodes.A,
             S: Phaser.Input.Keyboard.KeyCodes.S,
             D: Phaser.Input.Keyboard.KeyCodes.D,
+            SPACE: Phaser.Input.Keyboard.KeyCodes.SPACE,
         }) as any;
 
         // Set up collisions
@@ -269,7 +272,7 @@ export default class OceanScene extends Phaser.Scene {
                 maxAir: this.player.maxAir,
                 distance: Math.floor(this.player.sprite.x / 10),
                 maxDistance: this.levelWidth / 10,
-                characterName: 'SmileyFaceBob',
+                characterName: this.player.characterName,
             });
         }
     }

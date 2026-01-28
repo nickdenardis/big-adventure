@@ -104,7 +104,11 @@ export default function HUD({
 
                     {/* Character Ability */}
                     <div className="text-xs text-cyan-300 border-t border-gray-600 pt-2">
-                        <strong>Ability:</strong> Double Coins 💰
+                        <strong>Ability:</strong>{' '}
+                        {characterName === 'SmileyFaceBob' && 'Double Coins 💰'}
+                        {characterName === 'Cutie' && 'Share Health ❤️ (Space)'}
+                        {characterName === 'ChillDuck' && 'Double Health 💪'}
+                        {characterName === 'CrazyDuck' && 'Speed Control ⚡ (Space)'}
                     </div>
                 </div>
             </div>
