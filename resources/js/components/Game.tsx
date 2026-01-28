@@ -13,6 +13,7 @@ interface GameState {
     distance: number;
     maxDistance: number;
     characterName: string;
+    speedMode?: string;
 }
 
 // Global reference for updating React state from Phaser
@@ -92,6 +93,7 @@ export default function Game() {
                 distance={gameState.distance}
                 maxDistance={gameState.maxDistance}
                 characterName={gameState.characterName}
+                speedMode={gameState.speedMode}
             />
         </div>
     );

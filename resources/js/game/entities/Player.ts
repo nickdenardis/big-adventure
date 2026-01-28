@@ -223,15 +223,14 @@ export default class Player {
             }
         }
 
-        // Character-specific abilities (handle key presses)
-        if (keys.SPACE?.isDown) {
+        // Character-specific abilities (handle key presses with cooldown)
+        if (keys.SPACE && Phaser.Input.Keyboard.JustDown(keys.SPACE)) {
             this.useAbility();
         }
     }
 
     private useAbility() {
-        // Ability logic will be implemented when we add multiplayer
-        // For now, just handle CrazyDuck speed toggle
+        // CrazyDuck speed toggle
         if (this.characterName === 'CrazyDuck') {
             // Cycle through speed modes: slow (0.5x) -> normal (1x) -> fast (1.5x)
             this.speedMode = (this.speedMode + 1) % 3;
@@ -246,7 +245,54 @@ export default class Player {
                     this.speedMultiplier = 1.5;
                     break;
             }
+            
+            // Visual feedback - tint sprite based on speed
+            switch (this.speedMode) {
+                case 0: // Slow - blue tint
+                    this.sprite.setTint(0x8888ff);
+                    break;
+                case 1: // Normal - no tint
+                    this.sprite.clearTint();
+                    break;
+                case 2: // Fast - red tint
+                    this.sprite.setTint(0xff8888);
+                    break;
+            }
+            
+            // Add particle burst effect
+            this.createSpeedChangeEffect();
         }
+    }
+
+    private createSpeedChangeEffect() {
+        // Create a simple particle burst
+        const graphics = this.scene.add.graphics();
+        let color = 0xffffff;
+        
+        switch (this.speedMode) {
+            case 0: color = 0x4444ff; break; // Blue for slow
+            case 1: color = 0xffff44; break; // Yellow for normal
+            case 2: color = 0xff4444; break; // Red for fast
+        }
+        
+        graphics.fillStyle(color, 1);
+        
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const distance = 30;
+            const x = this.sprite.x + Math.cos(angle) * distance;
+            const y = this.sprite.y + Math.sin(angle) * distance;
+            
+            graphics.fillCircle(x, y, 3);
+        }
+        
+        // Fade out and destroy
+        this.scene.tweens.add({
+            targets: graphics,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => graphics.destroy()
+        });
     }
 
     takeDamage(amount: number) {
@@ -275,11 +321,44 @@ export default class Player {
 
     collectCoin(amount: number) {
         // Apply coin multiplier (SmileyFaceBob gets 2x)
-        this.coins += amount * this.coinMultiplier;
+        const coinsCollected = amount * this.coinMultiplier;
+        this.coins += coinsCollected;
+        
+        // Visual feedback for coin collection
+        if (this.coinMultiplier > 1) {
+            // Show +2 or +10 text for SmileyFaceBob
+            this.createFloatingText(`+${coinsCollected}`, 0xffd700);
+        }
     }
 
     collectBubble() {
         this.air = Math.min(this.maxAir, this.air + 30);
+        
+        // Visual feedback
+        this.createFloatingText('+30 Air', 0x87ceeb);
+    }
+
+    private createFloatingText(text: string, color: number) {
+        const floatingText = this.scene.add.text(
+            this.sprite.x,
+            this.sprite.y - 30,
+            text,
+            {
+                fontSize: '16px',
+                color: `#${color.toString(16)}`,
+                fontStyle: 'bold',
+            }
+        );
+        
+        // Animate floating up and fading out
+        this.scene.tweens.add({
+            targets: floatingText,
+            y: floatingText.y - 40,
+            alpha: 0,
+            duration: 1000,
+            ease: 'Power2',
+            onComplete: () => floatingText.destroy()
+        });
     }
 
     getSpeedModeName(): string {

@@ -273,6 +273,7 @@ export default class OceanScene extends Phaser.Scene {
                 distance: Math.floor(this.player.sprite.x / 10),
                 maxDistance: this.levelWidth / 10,
                 characterName: this.player.characterName,
+                speedMode: this.player.characterName === 'CrazyDuck' ? this.player.getSpeedModeName() : undefined,
             });
         }
     }

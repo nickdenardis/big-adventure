@@ -9,6 +9,7 @@ interface HUDProps {
     distance: number;
     maxDistance: number;
     characterName: string;
+    speedMode?: string;
 }
 
 export default function HUD({
@@ -20,6 +21,7 @@ export default function HUD({
     distance,
     maxDistance,
     characterName,
+    speedMode,
 }: HUDProps) {
     const healthPercentage = (health / maxHealth) * 100;
     const airPercentage = (air / maxAir) * 100;
@@ -108,7 +110,15 @@ export default function HUD({
                         {characterName === 'SmileyFaceBob' && 'Double Coins 💰'}
                         {characterName === 'Cutie' && 'Share Health ❤️ (Space)'}
                         {characterName === 'ChillDuck' && 'Double Health 💪'}
-                        {characterName === 'CrazyDuck' && 'Speed Control ⚡ (Space)'}
+                        {characterName === 'CrazyDuck' && (
+                            <span>
+                                Speed: <span className={`font-bold ${
+                                    speedMode === 'Slow' ? 'text-blue-400' :
+                                    speedMode === 'Fast' ? 'text-red-400' :
+                                    'text-yellow-400'
+                                }`}>{speedMode || 'Normal'}</span> ⚡ (Space)
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
