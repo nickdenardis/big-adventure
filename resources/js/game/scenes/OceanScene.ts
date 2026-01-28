@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import Player from '../entities/Player';
+import Obstacle from '../entities/Obstacle';
+import Collectible from '../entities/Collectible';
 
 export default class OceanScene extends Phaser.Scene {
     private player!: Player;
@@ -11,9 +13,20 @@ export default class OceanScene extends Phaser.Scene {
         D: Phaser.Input.Keyboard.Key;
     };
     private enemyBoat!: Phaser.GameObjects.Sprite;
-    private levelWidth: number = 5000; // Level is 5000px wide (about 1-2 min to complete)
+    private levelWidth: number = 5000;
     private oceanSurface: number = 100;
     private oceanFloor: number = 700;
+    
+    // Game objects
+    private obstacles: Obstacle[] = [];
+    private collectibles: Collectible[] = [];
+    private obstacleGroup!: Phaser.Physics.Arcade.Group;
+    private collectibleGroup!: Phaser.Physics.Arcade.Group;
+    
+    // Spawn timers
+    private lastObstacleSpawn: number = 0;
+    private lastCollectibleSpawn: number = 0;
+    private spawnPatternIndex: number = 0;
 
     constructor() {
         super({ key: 'OceanScene' });
@@ -38,7 +51,7 @@ export default class OceanScene extends Phaser.Scene {
         floorLine.lineStyle(2, 0x004080, 0.5);
         floorLine.lineBetween(0, this.oceanFloor, this.levelWidth, this.oceanFloor);
 
-        // Add some visual depth markers (seaweed, rocks)
+        // Add some visual depth markers
         this.addOceanDetails();
 
         // Add title
@@ -47,15 +60,11 @@ export default class OceanScene extends Phaser.Scene {
             color: '#ffffff',
             fontStyle: 'bold',
         });
-        title.setScrollFactor(0); // UI stays fixed
+        title.setScrollFactor(0);
 
-        // Add distance marker
-        const distanceText = this.add.text(20, 50, 'Distance: 0m', {
-            fontSize: '18px',
-            color: '#ffffff',
-        });
-        distanceText.setScrollFactor(0);
-        distanceText.setName('distanceText');
+        // Create physics groups
+        this.obstacleGroup = this.physics.add.group();
+        this.collectibleGroup = this.physics.add.group();
 
         // Create player (SmileyFaceBob)
         this.player = new Player(this, 200, 360, 'SmileyFaceBob');
@@ -63,7 +72,7 @@ export default class OceanScene extends Phaser.Scene {
         // Create enemy boat
         this.createEnemyBoat();
 
-        // Set up keyboard controls (WASD for Player 1)
+        // Set up keyboard controls
         this.wasdKeys = this.input.keyboard!.addKeys({
             W: Phaser.Input.Keyboard.KeyCodes.W,
             A: Phaser.Input.Keyboard.KeyCodes.A,
@@ -71,26 +80,74 @@ export default class OceanScene extends Phaser.Scene {
             D: Phaser.Input.Keyboard.KeyCodes.D,
         }) as any;
 
-        // Set camera to follow player (horizontal scrolling)
+        // Set up collisions
+        this.physics.add.overlap(
+            this.player.sprite,
+            this.obstacleGroup,
+            this.handleObstacleHit.bind(this),
+            undefined,
+            this
+        );
+
+        this.physics.add.overlap(
+            this.player.sprite,
+            this.collectibleGroup,
+            this.handleCollectiblePickup.bind(this),
+            undefined,
+            this
+        );
+
+        // Set camera to follow player
         this.cameras.main.setBounds(0, 0, this.levelWidth, 720);
         this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
-        
-        // Keep camera vertically centered
         this.cameras.main.setDeadzone(200, 200);
+        
+        // Create HUD
+        this.createHUD();
+    }
+
+    private createHUD() {
+        // Health
+        const healthText = this.add.text(20, 60, '', {
+            fontSize: '18px',
+            color: '#ff0000',
+        });
+        healthText.setScrollFactor(0);
+        healthText.setName('healthText');
+
+        // Coins
+        const coinsText = this.add.text(20, 85, '', {
+            fontSize: '18px',
+            color: '#ffd700',
+        });
+        coinsText.setScrollFactor(0);
+        coinsText.setName('coinsText');
+
+        // Air
+        const airText = this.add.text(20, 110, '', {
+            fontSize: '18px',
+            color: '#87ceeb',
+        });
+        airText.setScrollFactor(0);
+        airText.setName('airText');
+
+        // Distance
+        const distanceText = this.add.text(20, 135, '', {
+            fontSize: '18px',
+            color: '#ffffff',
+        });
+        distanceText.setScrollFactor(0);
+        distanceText.setName('distanceText');
     }
 
     private addOceanDetails() {
-        // Add some simple ocean floor details
         const detailGraphics = this.add.graphics();
         
         for (let x = 0; x < this.levelWidth; x += 300) {
-            // Random seaweed/rocks
             if (Math.random() > 0.5) {
-                // Seaweed
                 detailGraphics.fillStyle(0x006400, 0.3);
                 detailGraphics.fillRect(x + Math.random() * 200, 680, 10, 20);
             } else {
-                // Rocks
                 detailGraphics.fillStyle(0x404040, 0.4);
                 detailGraphics.fillCircle(x + Math.random() * 200, 695, 15);
             }
@@ -110,53 +167,188 @@ export default class OceanScene extends Phaser.Scene {
     }
 
     private createEnemyBoat() {
-        // Create simple enemy boat sprite
         const boatGraphics = this.add.graphics();
-        
-        // Boat hull
         boatGraphics.fillStyle(0x8b4513, 1);
         boatGraphics.fillTriangle(10, 40, 50, 40, 30, 10);
-        
-        // Sail
         boatGraphics.fillStyle(0xffffff, 1);
         boatGraphics.fillTriangle(25, 40, 25, 5, 45, 22);
-        
-        // Add flag
         boatGraphics.fillStyle(0xff0000, 1);
         boatGraphics.fillRect(45, 5, 10, 8);
-
         boatGraphics.generateTexture('enemyboat', 60, 50);
         boatGraphics.destroy();
 
-        // Place boat at right edge of screen (stays in view)
         this.enemyBoat = this.add.sprite(1100, this.oceanSurface - 25, 'enemyboat');
         this.enemyBoat.setDepth(10);
     }
 
-    update() {
-        // Update player movement
+    private spawnObstacles() {
+        const camera = this.cameras.main;
+        const spawnX = camera.scrollX + 1280 + 100;
+        
+        // Random spawn
+        if (Math.random() > 0.7) {
+            const type = Math.random() > 0.6 ? 'bomb' : 'spike';
+            const obstacle = new Obstacle(this, spawnX, 0, type);
+            this.obstacles.push(obstacle);
+            this.obstacleGroup.add(obstacle.sprite);
+        }
+        
+        // Pattern spawn every 1000px
+        if (Math.floor(this.player.sprite.x / 1000) > this.spawnPatternIndex) {
+            this.spawnPatternIndex = Math.floor(this.player.sprite.x / 1000);
+            this.spawnObstaclePattern(spawnX);
+        }
+    }
+
+    private spawnObstaclePattern(startX: number) {
+        // Create a pattern of obstacles
+        for (let i = 0; i < 3; i++) {
+            const obstacle = new Obstacle(this, startX + i * 100, 0, 'spike');
+            this.obstacles.push(obstacle);
+            this.obstacleGroup.add(obstacle.sprite);
+        }
+    }
+
+    private spawnCollectibles() {
+        const camera = this.cameras.main;
+        const spawnX = camera.scrollX + 1280 + 100;
+        
+        if (Math.random() > 0.6) {
+            const randomY = 150 + Math.random() * 500;
+            const type = Math.random() > 0.9 ? 'multicoin' : 'coin';
+            const collectible = new Collectible(this, spawnX, randomY, type);
+            this.collectibles.push(collectible);
+            this.collectibleGroup.add(collectible.sprite);
+        }
+        
+        // Spawn bubbles
+        if (Math.random() > 0.8) {
+            const randomY = 200 + Math.random() * 400;
+            const bubble = new Collectible(this, spawnX, randomY, 'bubble');
+            this.collectibles.push(bubble);
+            this.collectibleGroup.add(bubble.sprite);
+        }
+    }
+
+    private handleObstacleHit(playerSprite: any, obstacleSprite: any) {
+        const damage = obstacleSprite.getData('damage');
+        this.player.takeDamage(damage);
+        
+        // Destroy obstacle
+        const obstacle = this.obstacles.find(o => o.sprite === obstacleSprite);
+        if (obstacle) {
+            obstacle.destroy();
+            this.obstacles = this.obstacles.filter(o => o !== obstacle);
+        }
+    }
+
+    private handleCollectiblePickup(playerSprite: any, collectibleSprite: any) {
+        const type = collectibleSprite.getData('type');
+        const value = collectibleSprite.getData('value');
+        
+        if (type === 'bubble') {
+            this.player.collectBubble();
+        } else {
+            this.player.collectCoin(value);
+        }
+        
+        // Destroy collectible
+        const collectible = this.collectibles.find(c => c.sprite === collectibleSprite);
+        if (collectible) {
+            collectible.destroy();
+            this.collectibles = this.collectibles.filter(c => c !== collectible);
+        }
+    }
+
+    update(time: number, delta: number) {
+        // Update player
         this.player.update(this.wasdKeys);
 
-        // Update enemy boat position (stays at right edge of screen)
+        // Update obstacles
+        this.obstacles.forEach(obstacle => obstacle.update());
+
+        // Spawn obstacles and collectibles
+        if (time > this.lastObstacleSpawn + 800) {
+            this.spawnObstacles();
+            this.lastObstacleSpawn = time;
+        }
+
+        if (time > this.lastCollectibleSpawn + 600) {
+            this.spawnCollectibles();
+            this.lastCollectibleSpawn = time;
+        }
+
+        // Update enemy boat position
         const camera = this.cameras.main;
         this.enemyBoat.x = camera.scrollX + 1100;
 
-        // Update distance display
-        const distanceText = this.children.getByName('distanceText') as Phaser.GameObjects.Text;
-        if (distanceText) {
-            const distanceMeters = Math.floor(this.player.sprite.x / 10);
-            distanceText.setText(`Distance: ${distanceMeters}m / ${this.levelWidth / 10}m`);
-        }
+        // Update HUD
+        this.updateHUD();
+
+        // Clean up off-screen objects
+        this.cleanupObjects();
 
         // Check for level completion
         if (this.player.sprite.x >= this.levelWidth - 500) {
             this.onLevelComplete();
         }
+
+        // Check for game over
+        if (this.player.health <= 0) {
+            this.onGameOver();
+        }
+    }
+
+    private updateHUD() {
+        const healthText = this.children.getByName('healthText') as Phaser.GameObjects.Text;
+        const coinsText = this.children.getByName('coinsText') as Phaser.GameObjects.Text;
+        const airText = this.children.getByName('airText') as Phaser.GameObjects.Text;
+        const distanceText = this.children.getByName('distanceText') as Phaser.GameObjects.Text;
+
+        if (healthText) {
+            const hearts = '♥'.repeat(Math.ceil(this.player.health));
+            healthText.setText(`Health: ${hearts} (${Math.floor(this.player.health)}/${this.player.maxHealth})`);
+        }
+
+        if (coinsText) {
+            coinsText.setText(`Coins: ${this.player.coins}`);
+        }
+
+        if (airText) {
+            const airBar = '█'.repeat(Math.floor(this.player.air / 10));
+            airText.setText(`Air: ${airBar} (${Math.floor(this.player.air)}%)`);
+        }
+
+        if (distanceText) {
+            const distanceMeters = Math.floor(this.player.sprite.x / 10);
+            distanceText.setText(`Distance: ${distanceMeters}m / ${this.levelWidth / 10}m`);
+        }
+    }
+
+    private cleanupObjects() {
+        const camera = this.cameras.main;
+        
+        // Remove obstacles behind camera
+        this.obstacles = this.obstacles.filter(obstacle => {
+            if (obstacle.sprite.x < camera.scrollX - 200) {
+                obstacle.destroy();
+                return false;
+            }
+            return true;
+        });
+
+        // Remove collectibles behind camera
+        this.collectibles = this.collectibles.filter(collectible => {
+            if (collectible.sprite.x < camera.scrollX - 200) {
+                collectible.destroy();
+                return false;
+            }
+            return true;
+        });
     }
 
     private onLevelComplete() {
-        // Show victory message (we'll make this better later)
-        const victoryText = this.add.text(640, 360, 'LEVEL COMPLETE!\n\nYou reached the grassland!', {
+        const victoryText = this.add.text(640, 360, 'LEVEL COMPLETE!\n\nYou reached the grassland!\n\nCoins: ' + this.player.coins, {
             fontSize: '48px',
             color: '#ffff00',
             fontStyle: 'bold',
@@ -166,10 +358,24 @@ export default class OceanScene extends Phaser.Scene {
         }).setOrigin(0.5);
         victoryText.setScrollFactor(0);
 
-        // Stop player movement
         this.player.sprite.setVelocity(0, 0);
-        
-        // Transform boat to truck (just change color for now)
         this.enemyBoat.setTint(0xff8800);
+        
+        // Stop spawning
+        this.physics.pause();
+    }
+
+    private onGameOver() {
+        const gameOverText = this.add.text(640, 360, 'GAME OVER!\n\nYou ran out of health!', {
+            fontSize: '48px',
+            color: '#ff0000',
+            fontStyle: 'bold',
+            align: 'center',
+            backgroundColor: '#000000',
+            padding: { x: 20, y: 20 },
+        }).setOrigin(0.5);
+        gameOverText.setScrollFactor(0);
+
+        this.physics.pause();
     }
 }

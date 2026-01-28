@@ -8,6 +8,14 @@ export default class Player {
     private characterName: string;
     private oceanSurface: number = 100;
     private oceanFloor: number = 700;
+    
+    // Player stats
+    public health: number = 5;
+    public maxHealth: number = 5;
+    public coins: number = 0;
+    public air: number = 100;
+    public maxAir: number = 100;
+    private isInvincible: boolean = false;
 
     constructor(scene: Phaser.Scene, x: number, y: number, characterName: string) {
         this.scene = scene;
@@ -99,5 +107,51 @@ export default class Player {
             // Return to upright when stopped
             this.sprite.setRotation(this.sprite.rotation * 0.9);
         }
+
+        // Air system: deplete underwater, restore at surface
+        if (this.sprite.y < this.oceanSurface + 20) {
+            // At surface - restore air
+            this.air = Math.min(this.maxAir, this.air + 2);
+        } else {
+            // Underwater - deplete air
+            this.air = Math.max(0, this.air - 0.1);
+            
+            // Take damage if out of air
+            if (this.air <= 0) {
+                this.takeDamage(0.02); // Slow drowning damage
+            }
+        }
+    }
+
+    takeDamage(amount: number) {
+        if (this.isInvincible) return;
+
+        this.health = Math.max(0, this.health - amount);
+        
+        // Make invincible temporarily
+        if (amount >= 1) {
+            this.isInvincible = true;
+            
+            // Flash effect
+            this.scene.tweens.add({
+                targets: this.sprite,
+                alpha: 0.3,
+                duration: 100,
+                yoyo: true,
+                repeat: 5,
+                onComplete: () => {
+                    this.sprite.alpha = 1;
+                    this.isInvincible = false;
+                }
+            });
+        }
+    }
+
+    collectCoin(amount: number) {
+        this.coins += amount;
+    }
+
+    collectBubble() {
+        this.air = Math.min(this.maxAir, this.air + 30);
     }
 }
