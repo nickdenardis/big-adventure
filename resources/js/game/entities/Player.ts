@@ -5,12 +5,31 @@ export default class Player {
     private scene: Phaser.Scene;
     private swimSpeed: number = 200;
     private dragAmount: number = 0.85; // Water friction
+    private characterName: string;
+    private oceanSurface: number = 100;
+    private oceanFloor: number = 700;
 
-    constructor(scene: Phaser.Scene, x: number, y: number) {
+    constructor(scene: Phaser.Scene, x: number, y: number, characterName: string) {
         this.scene = scene;
+        this.characterName = characterName;
 
+        // Create character texture if not already created
+        if (!scene.textures.exists('smileyface')) {
+            this.createSmileyFaceTexture();
+        }
+
+        // Create physics sprite
+        this.sprite = scene.physics.add.sprite(x, y, 'smileyface');
+        this.sprite.setCollideWorldBounds(true);
+        
+        // Set drag for water resistance
+        this.sprite.setDrag(this.dragAmount * 1000);
+        this.sprite.setMaxVelocity(250, 250);
+    }
+
+    private createSmileyFaceTexture() {
         // Create a simple circle for SmileyFaceBob (stick figure head for now)
-        const graphics = scene.add.graphics();
+        const graphics = this.scene.add.graphics();
         graphics.fillStyle(0xffff00, 1); // Yellow
         graphics.fillCircle(16, 16, 16); // 32px diameter circle
         
@@ -27,13 +46,6 @@ export default class Player {
 
         graphics.generateTexture('smileyface', 32, 32);
         graphics.destroy();
-
-        // Create physics sprite
-        this.sprite = scene.physics.add.sprite(x, y, 'smileyface');
-        this.sprite.setCollideWorldBounds(true);
-        
-        // Set drag for water resistance
-        this.sprite.setDrag(this.dragAmount * 1000);
     }
 
     update(keys: {
@@ -69,12 +81,23 @@ export default class Player {
         // Apply velocity
         this.sprite.setVelocity(velocityX, velocityY);
 
-        // Keep player within bounds (surface to floor)
-        if (this.sprite.y < 100) {
-            this.sprite.y = 100;
+        // Keep player within vertical bounds (surface to floor)
+        if (this.sprite.y < this.oceanSurface) {
+            this.sprite.y = this.oceanSurface;
+            this.sprite.setVelocityY(0);
         }
-        if (this.sprite.y > 700) {
-            this.sprite.y = 700;
+        if (this.sprite.y > this.oceanFloor) {
+            this.sprite.y = this.oceanFloor;
+            this.sprite.setVelocityY(0);
+        }
+
+        // Add slight rotation based on movement direction (swimming animation)
+        if (velocityX !== 0 || velocityY !== 0) {
+            const angle = Math.atan2(velocityY, velocityX);
+            this.sprite.setRotation(angle * 0.1); // Subtle tilt
+        } else {
+            // Return to upright when stopped
+            this.sprite.setRotation(this.sprite.rotation * 0.9);
         }
     }
 }
