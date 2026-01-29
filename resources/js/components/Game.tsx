@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import OceanScene from '../game/scenes/OceanScene';
 import HUD from './HUD';
 import CharacterSelect from './CharacterSelect';
+import VictoryScreen from './VictoryScreen';
 
 interface GameState {
     health: number;
@@ -16,14 +17,25 @@ interface GameState {
     speedMode?: string;
 }
 
+interface VictoryData {
+    coins: number;
+    timeElapsed: number;
+    heartsRemaining: number;
+    maxHearts: number;
+    characterName: string;
+}
+
 // Global reference for updating React state from Phaser
 (window as any).updateGameState = null;
+(window as any).onVictory = null;
 
 export default function Game() {
     const gameRef = useRef<Phaser.Game | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [showCharacterSelect, setShowCharacterSelect] = useState(true);
     const [selectedCharacter, setSelectedCharacter] = useState<string>('SmileyFaceBob');
+    const [showVictory, setShowVictory] = useState(false);
+    const [victoryData, setVictoryData] = useState<VictoryData | null>(null);
     const [gameState, setGameState] = useState<GameState>({
         health: 5,
         maxHealth: 5,
@@ -38,6 +50,23 @@ export default function Game() {
     const handleStartGame = (character: string) => {
         setSelectedCharacter(character);
         setShowCharacterSelect(false);
+        setShowVictory(false);
+        setVictoryData(null);
+    };
+
+    const handlePlayAgain = () => {
+        // Reset game
+        setShowVictory(false);
+        setVictoryData(null);
+        
+        // Destroy current game
+        if (gameRef.current) {
+            gameRef.current.destroy(true);
+            gameRef.current = null;
+        }
+        
+        // Show character select again
+        setShowCharacterSelect(true);
     };
 
     useEffect(() => {
@@ -46,6 +75,12 @@ export default function Game() {
         // Set up global callback for Phaser to update React
         (window as any).updateGameState = (newState: GameState) => {
             setGameState(newState);
+        };
+        
+        // Set up victory callback
+        (window as any).onVictory = (data: VictoryData) => {
+            setVictoryData(data);
+            setShowVictory(true);
         };
 
         // Store selected character in global so scene can access it
@@ -71,6 +106,7 @@ export default function Game() {
 
         return () => {
             (window as any).updateGameState = null;
+            (window as any).onVictory = null;
             (window as any).selectedCharacter = null;
             gameRef.current?.destroy(true);
             gameRef.current = null;
@@ -95,6 +131,16 @@ export default function Game() {
                 characterName={gameState.characterName}
                 speedMode={gameState.speedMode}
             />
+            {showVictory && victoryData && (
+                <VictoryScreen
+                    coins={victoryData.coins}
+                    timeElapsed={victoryData.timeElapsed}
+                    heartsRemaining={victoryData.heartsRemaining}
+                    maxHearts={victoryData.maxHearts}
+                    characterName={victoryData.characterName}
+                    onPlayAgain={handlePlayAgain}
+                />
+            )}
         </div>
     );
 }

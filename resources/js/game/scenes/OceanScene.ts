@@ -13,6 +13,7 @@ export default class OceanScene extends Phaser.Scene {
         SPACE: Phaser.Input.Keyboard.Key;
     };
     private enemyBoat!: Phaser.GameObjects.Sprite;
+    private enemyTruck!: Phaser.GameObjects.Sprite;
     private levelWidth: number = 5000;
     private oceanSurface: number = 100;
     private oceanFloor: number = 700;
@@ -27,6 +28,11 @@ export default class OceanScene extends Phaser.Scene {
     private lastObstacleSpawn: number = 0;
     private lastCollectibleSpawn: number = 0;
     private spawnPatternIndex: number = 0;
+    
+    // Game state
+    private gameStartTime: number = 0;
+    private levelComplete: boolean = false;
+    private gameOver: boolean = false;
 
     constructor() {
         super({ key: 'OceanScene' });
@@ -35,6 +41,10 @@ export default class OceanScene extends Phaser.Scene {
     create() {
         // Get selected character from global
         const selectedCharacter = (window as any).selectedCharacter || 'SmileyFaceBob';
+        
+        // Record game start time
+        this.gameStartTime = Date.now() / 1000;
+        
         // Set world bounds (scrolling level)
         this.physics.world.setBounds(0, 0, this.levelWidth, 720);
 
@@ -129,6 +139,7 @@ export default class OceanScene extends Phaser.Scene {
     }
 
     private createEnemyBoat() {
+        // Create boat texture
         const boatGraphics = this.add.graphics();
         boatGraphics.fillStyle(0x8b4513, 1);
         boatGraphics.fillTriangle(10, 40, 50, 40, 30, 10);
@@ -139,8 +150,28 @@ export default class OceanScene extends Phaser.Scene {
         boatGraphics.generateTexture('enemyboat', 60, 50);
         boatGraphics.destroy();
 
+        // Create truck texture
+        const truckGraphics = this.add.graphics();
+        truckGraphics.fillStyle(0x8b4513, 1);
+        truckGraphics.fillRect(10, 15, 40, 25);
+        truckGraphics.fillStyle(0xff0000, 1);
+        truckGraphics.fillRect(15, 10, 15, 15);
+        truckGraphics.fillStyle(0x87ceeb, 1);
+        truckGraphics.fillRect(16, 12, 6, 8);
+        truckGraphics.fillRect(23, 12, 6, 8);
+        truckGraphics.fillStyle(0x333333, 1);
+        truckGraphics.fillCircle(20, 40, 5);
+        truckGraphics.fillCircle(40, 40, 5);
+        truckGraphics.generateTexture('enemytruck', 60, 50);
+        truckGraphics.destroy();
+
         this.enemyBoat = this.add.sprite(1100, this.oceanSurface - 25, 'enemyboat');
         this.enemyBoat.setDepth(10);
+        
+        // Create truck but hide it initially
+        this.enemyTruck = this.add.sprite(this.levelWidth - 250, 600, 'enemytruck');
+        this.enemyTruck.setDepth(10);
+        this.enemyTruck.setVisible(false);
     }
 
     private spawnObstacles() {
@@ -225,6 +256,11 @@ export default class OceanScene extends Phaser.Scene {
     }
 
     update(time: number, delta: number) {
+        // Don't update if game is over or level complete
+        if (this.levelComplete || this.gameOver) {
+            return;
+        }
+
         // Update player
         this.player.update(this.wasdKeys);
 
@@ -245,6 +281,9 @@ export default class OceanScene extends Phaser.Scene {
         // Update enemy boat position
         const camera = this.cameras.main;
         this.enemyBoat.x = camera.scrollX + 1100;
+        
+        // Add bobbing animation to boat
+        this.enemyBoat.y = this.oceanSurface - 25 + Math.sin(time / 200) * 5;
 
         // Update HUD
         this.updateHUD();
@@ -303,24 +342,83 @@ export default class OceanScene extends Phaser.Scene {
     }
 
     private onLevelComplete() {
-        const victoryText = this.add.text(640, 360, 'LEVEL COMPLETE!\n\nYou reached the grassland!\n\nCoins: ' + this.player.coins, {
-            fontSize: '48px',
-            color: '#ffff00',
-            fontStyle: 'bold',
-            align: 'center',
-            backgroundColor: '#000000',
-            padding: { x: 20, y: 20 },
-        }).setOrigin(0.5);
-        victoryText.setScrollFactor(0);
-
-        this.player.sprite.setVelocity(0, 0);
-        this.enemyBoat.setTint(0xff8800);
+        if (this.levelComplete) return;
+        this.levelComplete = true;
         
-        // Stop spawning
+        // Stop player movement
+        this.player.sprite.setVelocity(0, 0);
+        
+        // Animate boat -> truck transformation
+        this.transformBoatToTruck();
+        
+        // Calculate stats
+        const timeElapsed = Date.now() / 1000 - this.gameStartTime;
+        
+        // Delay showing victory screen until after transformation (2 seconds)
+        this.time.delayedCall(2000, () => {
+            // Notify React to show victory screen
+            if ((window as any).onVictory) {
+                (window as any).onVictory({
+                    coins: this.player.coins,
+                    timeElapsed: timeElapsed,
+                    heartsRemaining: this.player.health,
+                    maxHearts: this.player.maxHealth,
+                    characterName: this.player.characterName,
+                });
+            }
+        });
+        
+        // Stop physics
         this.physics.pause();
+    }
+    
+    private transformBoatToTruck() {
+        // Position truck where boat currently is
+        this.enemyTruck.setPosition(this.enemyBoat.x, 600);
+        
+        // Fade out boat
+        this.tweens.add({
+            targets: this.enemyBoat,
+            alpha: 0,
+            y: this.enemyBoat.y - 50, // Float up as it fades
+            duration: 800,
+            ease: 'Power2',
+            onComplete: () => {
+                this.enemyBoat.setVisible(false);
+            }
+        });
+        
+        // Show truck with animation (delayed slightly)
+        this.time.delayedCall(400, () => {
+            this.enemyTruck.setVisible(true);
+            this.enemyTruck.setAlpha(0);
+            this.enemyTruck.setScale(0.5);
+            this.enemyTruck.setRotation(-0.3);
+            
+            this.tweens.add({
+                targets: this.enemyTruck,
+                alpha: 1,
+                scale: 1.2,
+                rotation: 0,
+                duration: 600,
+                ease: 'Back.easeOut',
+                onComplete: () => {
+                    // Settle to normal size
+                    this.tweens.add({
+                        targets: this.enemyTruck,
+                        scale: 1,
+                        duration: 200,
+                        ease: 'Sine.easeOut',
+                    });
+                }
+            });
+        });
     }
 
     private onGameOver() {
+        if (this.gameOver) return;
+        this.gameOver = true;
+        
         const gameOverText = this.add.text(640, 360, 'GAME OVER!\n\nYou ran out of health!', {
             fontSize: '48px',
             color: '#ff0000',
