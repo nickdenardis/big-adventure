@@ -145,12 +145,13 @@ export default class OceanScene extends Phaser.Scene {
 
     private spawnObstacles() {
         const camera = this.cameras.main;
-        const spawnX = camera.scrollX + 1280 + 100;
+        const spawnX = camera.scrollX + 1000; // Spawn 1000 pixels ahead
         
-        // Random spawn
-        if (Math.random() > 0.7) {
+        // Random spawn (above water surface) - increased frequency
+        if (Math.random() > 0.5) { // Was 0.7, now more frequent
             const type = Math.random() > 0.6 ? 'bomb' : 'spike';
-            const obstacle = new Obstacle(this, spawnX, 0, type);
+            const spawnY = 50; // Above ocean surface
+            const obstacle = new Obstacle(this, spawnX, spawnY, type);
             this.obstacles.push(obstacle);
             this.obstacleGroup.add(obstacle.sprite);
         }
@@ -158,14 +159,15 @@ export default class OceanScene extends Phaser.Scene {
         // Pattern spawn every 1000px
         if (Math.floor(this.player.sprite.x / 1000) > this.spawnPatternIndex) {
             this.spawnPatternIndex = Math.floor(this.player.sprite.x / 1000);
-            this.spawnObstaclePattern(spawnX);
+            this.spawnObstaclePattern(camera.scrollX + 800);
         }
     }
 
     private spawnObstaclePattern(startX: number) {
         // Create a pattern of obstacles
         for (let i = 0; i < 3; i++) {
-            const obstacle = new Obstacle(this, startX + i * 100, 0, 'spike');
+            const spawnY = 30 + i * 20; // Staggered heights above surface
+            const obstacle = new Obstacle(this, startX + i * 150, spawnY, 'spike');
             this.obstacles.push(obstacle);
             this.obstacleGroup.add(obstacle.sprite);
         }

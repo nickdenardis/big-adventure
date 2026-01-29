@@ -5,7 +5,7 @@ export default class Obstacle {
     private scene: Phaser.Scene;
     private type: 'spike' | 'bomb';
     private damage: number;
-    private sinkSpeed: number = 150;
+    private sinkSpeed: number = 104; // 30% faster than 80
 
     constructor(scene: Phaser.Scene, x: number, y: number, type: 'spike' | 'bomb') {
         this.scene = scene;
@@ -18,9 +18,15 @@ export default class Obstacle {
             this.createTexture(type);
         }
 
-        // Create sprite
+        // Create sprite with physics
         this.sprite = scene.physics.add.sprite(x, y, textureName);
-        this.sprite.setVelocityY(this.sinkSpeed); // Sink to ocean floor
+        
+        // Enable physics body and set velocity
+        if (this.sprite.body) {
+            this.sprite.body.enable = true;
+            this.sprite.setVelocityY(this.sinkSpeed); // Sink to ocean floor
+        }
+        
         this.sprite.setData('damage', this.damage);
         this.sprite.setData('type', type);
     }
@@ -58,6 +64,15 @@ export default class Obstacle {
     }
 
     update() {
+        // Ensure velocity is still set
+        if (this.sprite.body) {
+            const body = this.sprite.body as Phaser.Physics.Arcade.Body;
+            
+            if (body.velocity.y === 0 && this.sprite.y < 700) {
+                body.setVelocityY(this.sinkSpeed);
+            }
+        }
+        
         // Stop sinking at ocean floor
         if (this.sprite.y >= 700) {
             this.sprite.setVelocityY(0);
@@ -66,7 +81,7 @@ export default class Obstacle {
 
         // Add slight rotation while falling
         if (this.sprite.body && this.sprite.body.velocity.y > 0) {
-            this.sprite.rotation += 0.05;
+            this.sprite.rotation += 0.03; // Slower rotation
         }
     }
 
