@@ -314,7 +314,7 @@ export default class OceanScene extends Phaser.Scene {
         // Update all players
         this.players.forEach((player, index) => {
             if (this.controlSets[index]) {
-                player.update(this.controlSets[index]);
+                player.update(this.controlSets[index], this.players); // Pass all players for abilities
             }
         });
 

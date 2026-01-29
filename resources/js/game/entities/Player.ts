@@ -158,7 +158,7 @@ export default class Player {
         DOWN?: Phaser.Input.Keyboard.Key;
         RIGHT?: Phaser.Input.Keyboard.Key;
         ABILITY?: Phaser.Input.Keyboard.Key;
-    }) {
+    }, allPlayers?: Player[]) {
         // Reset velocity
         let velocityX = 0;
         let velocityY = 0;
@@ -225,11 +225,17 @@ export default class Player {
 
         // Character-specific abilities (handle key presses with cooldown)
         if (keys.ABILITY && Phaser.Input.Keyboard.JustDown(keys.ABILITY)) {
-            this.useAbility();
+            this.useAbility(allPlayers);
         }
     }
 
-    private useAbility() {
+    private useAbility(allPlayers?: Player[]) {
+        // Cutie health sharing
+        if (this.characterName === 'Cutie') {
+            this.shareHealth(allPlayers);
+            return;
+        }
+        
         // CrazyDuck speed toggle
         if (this.characterName === 'CrazyDuck') {
             // Cycle through speed modes: slow (0.5x) -> normal (1x) -> fast (1.5x)
@@ -261,6 +267,90 @@ export default class Player {
             
             // Add particle burst effect
             this.createSpeedChangeEffect();
+        }
+    }
+    
+    private shareHealth(allPlayers?: Player[]) {
+        // Need at least 2 hearts to share (can't kill yourself)
+        if (!allPlayers || this.health <= 1) {
+            this.createFloatingText("Can't Share!", 0xff0000);
+            return;
+        }
+        
+        // Find nearest alive player (not self)
+        const otherPlayers = allPlayers.filter(p => 
+            p !== this && 
+            p.health > 0 && 
+            p.health < p.maxHealth // Only share with players who need health
+        );
+        
+        if (otherPlayers.length === 0) {
+            this.createFloatingText("No one needs health!", 0xffaa00);
+            return;
+        }
+        
+        // Find nearest player
+        let nearest: Player | null = null;
+        let nearestDistance = Infinity;
+        
+        otherPlayers.forEach(player => {
+            const dx = player.sprite.x - this.sprite.x;
+            const dy = player.sprite.y - this.sprite.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearest = player;
+            }
+        });
+        
+        if (nearest) {
+            // Transfer 1 heart
+            this.health -= 1;
+            nearest.health = Math.min(nearest.maxHealth, nearest.health + 1);
+            
+            // Visual feedback
+            this.createFloatingText("-1 ❤️", 0xff4444);
+            nearest.createFloatingText("+1 ❤️", 0x44ff44);
+            
+            // Create heart particle effect between players
+            this.createHeartShareEffect(nearest);
+            
+            // Flash both players
+            this.sprite.setTint(0xff88ff);
+            nearest.sprite.setTint(0x88ff88);
+            
+            this.scene.time.delayedCall(200, () => {
+                this.sprite.clearTint();
+                nearest!.sprite.clearTint();
+            });
+        }
+    }
+    
+    private createHeartShareEffect(targetPlayer: Player) {
+        // Create heart particles that travel from Cutie to target
+        const startX = this.sprite.x;
+        const startY = this.sprite.y;
+        const endX = targetPlayer.sprite.x;
+        const endY = targetPlayer.sprite.y;
+        
+        // Create 3 heart sprites
+        for (let i = 0; i < 3; i++) {
+            const heart = this.scene.add.text(startX, startY, '❤️', {
+                fontSize: '24px'
+            });
+            
+            this.scene.tweens.add({
+                targets: heart,
+                x: endX,
+                y: endY,
+                alpha: 0,
+                scale: 1.5,
+                duration: 800,
+                delay: i * 100,
+                ease: 'Power2',
+                onComplete: () => heart.destroy()
+            });
         }
     }
 
