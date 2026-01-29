@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import SoundManager from '../utils/SoundManager';
 
 export default class Player {
     public sprite: Phaser.Physics.Arcade.Sprite;
@@ -8,6 +9,7 @@ export default class Player {
     public characterName: string;
     private oceanSurface: number = 100;
     private oceanFloor: number = 700;
+    private soundManager: SoundManager;
     
     // Player stats
     public health: number;
@@ -19,10 +21,15 @@ export default class Player {
     private coinMultiplier: number = 1;
     private speedMultiplier: number = 1;
     private speedMode: number = 1; // 0=slow, 1=normal, 2=fast (for CrazyDuck)
+    
+    // Animation state
+    private swimBobTimer: number = 0;
+    private wasAtSurface: boolean = false;
 
-    constructor(scene: Phaser.Scene, x: number, y: number, characterName: string) {
+    constructor(scene: Phaser.Scene, x: number, y: number, characterName: string, soundManager: SoundManager) {
         this.scene = scene;
         this.characterName = characterName;
+        this.soundManager = soundManager;
 
         // Set character-specific stats
         this.setCharacterStats();
@@ -40,6 +47,9 @@ export default class Player {
         // Set drag for water resistance
         this.sprite.setDrag(this.dragAmount * 1000);
         this.sprite.setMaxVelocity(250, 250);
+        
+        // Start swimming animation
+        this.startSwimmingAnimation();
     }
 
     private setCharacterStats() {
@@ -151,6 +161,19 @@ export default class Player {
         graphics.generateTexture(textureName, 32, 36);
         graphics.destroy();
     }
+    
+    private startSwimmingAnimation() {
+        // Subtle scale pulsing instead of Y position (which conflicts with physics)
+        this.scene.tweens.add({
+            targets: this.sprite,
+            scaleX: 1.05,
+            scaleY: 0.98,
+            duration: 1200,
+            ease: 'Sine.easeInOut',
+            yoyo: true,
+            repeat: -1
+        });
+    }
 
     update(keys: {
         UP?: Phaser.Input.Keyboard.Key;
@@ -210,9 +233,16 @@ export default class Player {
         }
 
         // Air system: deplete underwater, restore at surface
-        if (this.sprite.y < this.oceanSurface + 20) {
+        const atSurface = this.sprite.y < this.oceanSurface + 20;
+        
+        if (atSurface) {
             // At surface - restore air
             this.air = Math.min(this.maxAir, this.air + 2);
+            
+            // Create splash when breaking surface
+            if (!this.wasAtSurface) {
+                this.createSplashEffect();
+            }
         } else {
             // Underwater - deplete air
             this.air = Math.max(0, this.air - 0.1);
@@ -222,6 +252,8 @@ export default class Player {
                 this.takeDamage(0.02); // Slow drowning damage
             }
         }
+        
+        this.wasAtSurface = atSurface;
 
         // Character-specific abilities (handle key presses with cooldown)
         if (keys.ABILITY && Phaser.Input.Keyboard.JustDown(keys.ABILITY)) {
@@ -238,6 +270,9 @@ export default class Player {
         
         // CrazyDuck speed toggle
         if (this.characterName === 'CrazyDuck') {
+            // Play ability sound
+            this.soundManager.playAbilitySound();
+            
             // Cycle through speed modes: slow (0.5x) -> normal (1x) -> fast (1.5x)
             this.speedMode = (this.speedMode + 1) % 3;
             switch (this.speedMode) {
@@ -305,6 +340,9 @@ export default class Player {
         });
         
         if (nearest) {
+            // Play ability sound
+            this.soundManager.playAbilitySound();
+            
             // Transfer 1 heart
             this.health -= 1;
             nearest.health = Math.min(nearest.maxHealth, nearest.health + 1);
@@ -385,10 +423,79 @@ export default class Player {
         });
     }
 
+    private createSplashEffect() {
+        // Play splash sound
+        this.soundManager.playSplashSound();
+        
+        // Create water splash particles when breaking surface
+        const particles = this.scene.add.particles(this.sprite.x, this.oceanSurface, 'particle', {
+            speed: { min: 50, max: 150 },
+            angle: { min: 240, max: 300 },
+            scale: { start: 0.5, end: 0 },
+            blendMode: 'ADD',
+            lifespan: 600,
+            gravityY: 200,
+            quantity: 8,
+            tint: 0x88ccff
+        });
+        
+        // Stop emitting after one burst
+        this.scene.time.delayedCall(100, () => {
+            particles.destroy();
+        });
+    }
+    
+    private createCoinCollectEffect() {
+        // Sparkle particles
+        const particles = this.scene.add.particles(this.sprite.x, this.sprite.y, 'particle', {
+            speed: { min: 20, max: 80 },
+            angle: { min: 0, max: 360 },
+            scale: { start: 0.8, end: 0 },
+            blendMode: 'ADD',
+            lifespan: 400,
+            quantity: 6,
+            tint: 0xffdd44
+        });
+        
+        this.scene.time.delayedCall(100, () => {
+            particles.destroy();
+        });
+    }
+    
+    private createDamageEffect() {
+        // Screen shake camera
+        this.scene.cameras.main.shake(200, 0.005);
+        
+        // Red flash overlay
+        const flash = this.scene.add.rectangle(
+            this.scene.cameras.main.scrollX + 640,
+            360,
+            1280,
+            720,
+            0xff0000,
+            0.3
+        );
+        flash.setScrollFactor(0);
+        flash.setDepth(1000);
+        
+        this.scene.tweens.add({
+            targets: flash,
+            alpha: 0,
+            duration: 200,
+            onComplete: () => flash.destroy()
+        });
+    }
+
     takeDamage(amount: number) {
         if (this.isInvincible || this.health <= 0) return; // Don't damage if already dead
 
         this.health = Math.max(0, this.health - amount);
+        
+        // Visual damage feedback (only for significant damage)
+        if (amount >= 1) {
+            this.createDamageEffect();
+            this.soundManager.playDamageSound();
+        }
         
         // Check if player just died
         if (this.health <= 0) {
@@ -416,6 +523,9 @@ export default class Player {
     }
     
     private die() {
+        // Play death sound
+        this.soundManager.playDeathSound();
+        
         // Death animation
         this.scene.tweens.add({
             targets: this.sprite,
@@ -443,9 +553,14 @@ export default class Player {
         const coinsCollected = amount * this.coinMultiplier;
         this.coins += coinsCollected;
         
+        // Visual effects
+        this.createCoinCollectEffect();
+        
         // Visual feedback for coin collection
         if (this.coinMultiplier > 1) {
             // Show +2 or +10 text for SmileyFaceBob
+            this.createFloatingText(`+${coinsCollected}`, 0xffd700);
+        } else {
             this.createFloatingText(`+${coinsCollected}`, 0xffd700);
         }
     }

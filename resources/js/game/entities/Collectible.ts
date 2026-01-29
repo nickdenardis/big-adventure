@@ -40,6 +40,42 @@ export default class Collectible {
             repeat: -1,
             ease: 'Sine.easeInOut'
         });
+        
+        // Add coin-specific animations
+        if (type === 'coin' || type === 'multicoin') {
+            // Spinning effect
+            scene.tweens.add({
+                targets: this.sprite,
+                angle: 360,
+                duration: 3000,
+                repeat: -1,
+                ease: 'Linear'
+            });
+            
+            // Pulsing glow effect for multicoin
+            if (type === 'multicoin') {
+                scene.tweens.add({
+                    targets: this.sprite,
+                    scale: 1.2,
+                    duration: 800,
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Sine.easeInOut'
+                });
+            }
+        }
+        
+        // Bubble specific animation
+        if (type === 'bubble') {
+            // Rising animation (bubbles float up)
+            scene.tweens.add({
+                targets: this.sprite,
+                y: y - 100,
+                duration: 4000,
+                ease: 'Linear',
+                onComplete: () => this.sprite.destroy()
+            });
+        }
     }
 
     private createTexture(type: 'coin' | 'multicoin' | 'bubble') {

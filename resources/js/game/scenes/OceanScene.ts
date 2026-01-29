@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import Player from '../entities/Player';
 import Obstacle from '../entities/Obstacle';
 import Collectible from '../entities/Collectible';
+import SoundManager from '../utils/SoundManager';
 
 export default class OceanScene extends Phaser.Scene {
     private players: Player[] = [];
@@ -11,6 +12,7 @@ export default class OceanScene extends Phaser.Scene {
     private levelWidth: number = 5000;
     private oceanSurface: number = 100;
     private oceanFloor: number = 700;
+    private soundManager!: SoundManager;
     
     // Game objects
     private obstacles: Obstacle[] = [];
@@ -38,6 +40,13 @@ export default class OceanScene extends Phaser.Scene {
         
         // Record game start time
         this.gameStartTime = Date.now() / 1000;
+        
+        // Initialize sound manager
+        this.soundManager = new SoundManager();
+        this.soundManager.startBackgroundMusic();
+        
+        // Create particle texture for effects
+        this.createParticleTexture();
         
         // Set world bounds (scrolling level)
         this.physics.world.setBounds(0, 0, this.levelWidth, 720);
@@ -72,7 +81,8 @@ export default class OceanScene extends Phaser.Scene {
                 this, 
                 startX, 
                 startY + (index * 50), // Offset each player vertically
-                characterName
+                characterName,
+                this.soundManager
             );
             this.players.push(player);
             
@@ -157,6 +167,15 @@ export default class OceanScene extends Phaser.Scene {
     private setupCamera() {
         this.cameras.main.setBounds(0, 0, this.levelWidth, 720);
         // Don't use startFollow - we'll manually control camera in update for all modes
+    }
+    
+    private createParticleTexture() {
+        // Create a simple circular particle texture
+        const graphics = this.add.graphics();
+        graphics.fillStyle(0xffffff, 1);
+        graphics.fillCircle(4, 4, 4);
+        graphics.generateTexture('particle', 8, 8);
+        graphics.destroy();
     }
 
     private addOceanDetails() {
@@ -293,8 +312,15 @@ export default class OceanScene extends Phaser.Scene {
         
         if (type === 'bubble') {
             player.collectBubble();
+            this.soundManager.playBubbleSound();
         } else {
             player.collectCoin(value);
+            // Play appropriate coin sound
+            if (value > 1) {
+                this.soundManager.playMultiCoinSound();
+            } else {
+                this.soundManager.playCoinSound();
+            }
         }
         
         // Destroy collectible
@@ -487,6 +513,10 @@ export default class OceanScene extends Phaser.Scene {
     private onLevelComplete() {
         if (this.levelComplete) return;
         this.levelComplete = true;
+        
+        // Stop background music and play victory sound
+        this.soundManager.stopBackgroundMusic();
+        this.soundManager.playVictorySound();
         
         // Stop all alive players movement
         this.players.forEach(player => {
