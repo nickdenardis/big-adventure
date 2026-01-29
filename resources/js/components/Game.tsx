@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Phaser from 'phaser';
+import axios from 'axios';
 import OceanScene from '../game/scenes/OceanScene';
 import HUD from './HUD';
 import CharacterSelect from './CharacterSelect';
@@ -48,6 +49,7 @@ export default function Game() {
     const containerRef = useRef<HTMLDivElement>(null);
     const [showCharacterSelect, setShowCharacterSelect] = useState(true);
     const [selectedCharacters, setSelectedCharacters] = useState<string[]>(['SmileyFaceBob']);
+    const [playerName, setPlayerName] = useState<string>('Anonymous Player');
     const [showVictory, setShowVictory] = useState(false);
     const [victoryData, setVictoryData] = useState<VictoryData | null>(null);
     const [showPause, setShowPause] = useState(false);
@@ -59,8 +61,9 @@ export default function Game() {
         maxDistance: 500,
     });
 
-    const handleStartGame = (characters: string[]) => {
+    const handleStartGame = (characters: string[], name: string) => {
         setSelectedCharacters(characters);
+        setPlayerName(name);
         setShowCharacterSelect(false);
         setShowVictory(false);
         setVictoryData(null);
@@ -109,6 +112,23 @@ export default function Game() {
         setShowPause(false);
         setShowCharacterSelect(true);
     };
+    
+    const submitScore = async (data: VictoryData) => {
+        try {
+            await axios.post('/api/scores', {
+                player_name: playerName,
+                characters: selectedCharacters,
+                coins: data.coins,
+                time_seconds: Math.floor(data.timeElapsed),
+                hearts_remaining: data.heartsRemaining,
+                max_hearts: data.maxHearts,
+                completed: true
+            });
+            console.log('Score submitted successfully!');
+        } catch (error) {
+            console.error('Failed to submit score:', error);
+        }
+    };
 
     useEffect(() => {
         if (showCharacterSelect || !containerRef.current || gameRef.current) return;
@@ -122,6 +142,8 @@ export default function Game() {
         (window as any).onVictory = (data: VictoryData) => {
             setVictoryData(data);
             setShowVictory(true);
+            // Submit score to leaderboard
+            submitScore(data);
         };
         
         // Set up game over callback

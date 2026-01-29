@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Leaderboard from './Leaderboard';
 
 interface CharacterOption {
     name: string;
@@ -40,11 +41,13 @@ const characters: CharacterOption[] = [
 ];
 
 interface CharacterSelectProps {
-    onStart: (selectedCharacters: string[]) => void;
+    onStart: (selectedCharacters: string[], playerName: string) => void;
 }
 
 export default function CharacterSelect({ onStart }: CharacterSelectProps) {
     const [selectedPlayers, setSelectedPlayers] = useState<string[]>(['SmileyFaceBob']);
+    const [playerName, setPlayerName] = useState<string>('');
+    const [showLeaderboard, setShowLeaderboard] = useState(false);
 
     const toggleCharacter = (characterName: string) => {
         if (selectedPlayers.includes(characterName)) {
@@ -132,21 +135,56 @@ export default function CharacterSelect({ onStart }: CharacterSelectProps) {
                     })}
                 </div>
 
-                {/* Start Button */}
-                <div className="text-center">
-                    <button
-                        onClick={() => onStart(selectedPlayers)}
-                        className="px-12 py-4 bg-green-500 hover:bg-green-600 text-white text-2xl font-bold rounded-lg shadow-lg transform hover:scale-105 transition-all"
-                    >
-                        START GAME ({selectedPlayers.length} Player{selectedPlayers.length > 1 ? 's' : ''}) →
-                    </button>
+                {/* Player Name Input & Buttons */}
+                <div className="space-y-4 mb-8">
+                    <div>
+                        <label className="block text-white text-lg font-semibold mb-2 text-center">
+                            {selectedPlayers.length > 1 ? 'Team Name (Optional)' : 'Your Name (Optional)'}
+                        </label>
+                        <input
+                            type="text"
+                            value={playerName}
+                            onChange={(e) => setPlayerName(e.target.value)}
+                            placeholder={selectedPlayers.length > 1 ? "Team Anonymous" : "Anonymous Player"}
+                            maxLength={50}
+                            className="w-full max-w-md mx-auto block px-4 py-3 bg-white/20 border-2 border-white/30 rounded-lg text-white text-center text-xl placeholder-white/50 focus:outline-none focus:border-yellow-400 transition-colors"
+                        />
+                        {selectedPlayers.length > 1 && (
+                            <p className="text-white/60 text-sm text-center mt-2">
+                                This name represents all {selectedPlayers.length} players on your team
+                            </p>
+                        )}
+                    </div>
+                    
+                    <div className="flex gap-4 justify-center">
+                        {/* Start Button */}
+                        <button
+                            onClick={() => onStart(selectedPlayers, playerName || (selectedPlayers.length > 1 ? 'Team Anonymous' : 'Anonymous Player'))}
+                            className="px-12 py-4 bg-green-500 hover:bg-green-600 text-white text-2xl font-bold rounded-lg shadow-lg transform hover:scale-105 transition-all"
+                        >
+                            START GAME ({selectedPlayers.length} Player{selectedPlayers.length > 1 ? 's' : ''}) →
+                        </button>
+                        
+                        {/* Leaderboard Button */}
+                        <button
+                            onClick={() => setShowLeaderboard(true)}
+                            className="px-8 py-4 bg-purple-500 hover:bg-purple-600 text-white text-xl font-bold rounded-lg shadow-lg transform hover:scale-105 transition-all"
+                        >
+                            🏆 Leaderboard
+                        </button>
+                    </div>
                 </div>
 
                 {/* Controls Info */}
-                <div className="mt-8 text-center text-white/70 text-sm">
+                <div className="text-center text-white/70 text-sm">
                     <p>💡 Click characters to add/remove • Max 4 players on one keyboard!</p>
                 </div>
             </div>
+            
+            {/* Leaderboard Modal */}
+            {showLeaderboard && (
+                <Leaderboard onClose={() => setShowLeaderboard(false)} />
+            )}
         </div>
     );
 }
