@@ -29,6 +29,8 @@ export default class OceanScene extends Phaser.Scene {
     private gameStartTime: number = 0;
     private levelComplete: boolean = false;
     private gameOver: boolean = false;
+    private isPaused: boolean = false;
+    private escKey!: Phaser.Input.Keyboard.Key;
 
     constructor() {
         super({ key: 'OceanScene' });
@@ -44,6 +46,14 @@ export default class OceanScene extends Phaser.Scene {
         // Initialize sound manager
         this.soundManager = new SoundManager();
         this.soundManager.startBackgroundMusic();
+        
+        // Set up pause key (ESC)
+        this.escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+        this.escKey.on('down', () => {
+            if (!this.levelComplete && !this.gameOver) {
+                this.togglePause();
+            }
+        });
         
         // Create particle texture for effects
         this.createParticleTexture();
@@ -332,8 +342,8 @@ export default class OceanScene extends Phaser.Scene {
     }
 
     update(time: number, delta: number) {
-        // Don't update if game is over or level complete
-        if (this.levelComplete || this.gameOver) {
+        // Don't update if game is over, level complete, or paused
+        if (this.levelComplete || this.gameOver || this.isPaused) {
             return;
         }
 
@@ -385,9 +395,30 @@ export default class OceanScene extends Phaser.Scene {
 
         // Check for game over (all players dead)
         const allPlayersDead = this.players.every(p => p.health <= 0);
-        if (allPlayersDead) {
+        if (allPlayersDead && !this.gameOver) {
             this.onGameOver();
         }
+    }
+    
+    private togglePause() {
+        this.isPaused = !this.isPaused;
+        
+        // Notify React to show/hide pause menu
+        if ((window as any).togglePause) {
+            (window as any).togglePause(this.isPaused);
+        }
+        
+        // Pause/resume physics
+        if (this.isPaused) {
+            this.physics.pause();
+        } else {
+            this.physics.resume();
+        }
+    }
+    
+    public resumeGame() {
+        this.isPaused = false;
+        this.physics.resume();
     }
     
     private updateCamera() {
@@ -605,15 +636,22 @@ export default class OceanScene extends Phaser.Scene {
         if (this.gameOver) return;
         this.gameOver = true;
         
-        const gameOverText = this.add.text(640, 360, 'GAME OVER!\n\nYou ran out of health!', {
-            fontSize: '48px',
-            color: '#ff0000',
-            fontStyle: 'bold',
-            align: 'center',
-            backgroundColor: '#000000',
-            padding: { x: 20, y: 20 },
-        }).setOrigin(0.5);
-        gameOverText.setScrollFactor(0);
+        // Stop music and play death sound
+        this.soundManager.stopBackgroundMusic();
+        
+        // Calculate stats
+        const timeElapsed = Date.now() / 1000 - this.gameStartTime;
+        const totalCoins = this.players.reduce((sum, p) => sum + p.coins, 0);
+        const rightmostPlayer = Math.max(...this.players.map(p => p.sprite.x));
+        
+        // Notify React to show game over screen
+        if ((window as any).onGameOver) {
+            (window as any).onGameOver({
+                coins: totalCoins,
+                timeElapsed: timeElapsed,
+                distanceReached: rightmostPlayer
+            });
+        }
 
         this.physics.pause();
     }

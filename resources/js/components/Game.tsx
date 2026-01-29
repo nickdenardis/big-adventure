@@ -4,6 +4,8 @@ import OceanScene from '../game/scenes/OceanScene';
 import HUD from './HUD';
 import CharacterSelect from './CharacterSelect';
 import VictoryScreen from './VictoryScreen';
+import PauseMenu from './PauseMenu';
+import GameOverScreen from './GameOverScreen';
 
 interface PlayerState {
     health: number;
@@ -29,9 +31,17 @@ interface VictoryData {
     characterName: string;
 }
 
+interface GameOverData {
+    coins: number;
+    timeElapsed: number;
+    distanceReached: number;
+}
+
 // Global reference for updating React state from Phaser
 (window as any).updateGameState = null;
 (window as any).onVictory = null;
+(window as any).onGameOver = null;
+(window as any).togglePause = null;
 
 export default function Game() {
     const gameRef = useRef<Phaser.Game | null>(null);
@@ -40,6 +50,9 @@ export default function Game() {
     const [selectedCharacters, setSelectedCharacters] = useState<string[]>(['SmileyFaceBob']);
     const [showVictory, setShowVictory] = useState(false);
     const [victoryData, setVictoryData] = useState<VictoryData | null>(null);
+    const [showPause, setShowPause] = useState(false);
+    const [showGameOver, setShowGameOver] = useState(false);
+    const [gameOverData, setGameOverData] = useState<GameOverData | null>(null);
     const [gameState, setGameState] = useState<GameState>({
         players: [],
         distance: 0,
@@ -51,12 +64,17 @@ export default function Game() {
         setShowCharacterSelect(false);
         setShowVictory(false);
         setVictoryData(null);
+        setShowPause(false);
+        setShowGameOver(false);
+        setGameOverData(null);
     };
 
     const handlePlayAgain = () => {
         // Reset game
         setShowVictory(false);
         setVictoryData(null);
+        setShowGameOver(false);
+        setGameOverData(null);
         
         // Destroy current game
         if (gameRef.current) {
@@ -65,6 +83,30 @@ export default function Game() {
         }
         
         // Show character select again
+        setShowCharacterSelect(true);
+    };
+    
+    const handlePauseResume = () => {
+        setShowPause(false);
+        if (gameRef.current) {
+            const scene = gameRef.current.scene.getScene('OceanScene') as OceanScene;
+            if (scene) {
+                scene.resumeGame();
+            }
+        }
+    };
+    
+    const handlePauseRestart = () => {
+        handlePlayAgain();
+    };
+    
+    const handlePauseMainMenu = () => {
+        // Destroy current game
+        if (gameRef.current) {
+            gameRef.current.destroy(true);
+            gameRef.current = null;
+        }
+        setShowPause(false);
         setShowCharacterSelect(true);
     };
 
@@ -80,6 +122,17 @@ export default function Game() {
         (window as any).onVictory = (data: VictoryData) => {
             setVictoryData(data);
             setShowVictory(true);
+        };
+        
+        // Set up game over callback
+        (window as any).onGameOver = (data: GameOverData) => {
+            setGameOverData(data);
+            setShowGameOver(true);
+        };
+        
+        // Set up pause toggle callback
+        (window as any).togglePause = (paused: boolean) => {
+            setShowPause(paused);
         };
 
         // Store selected character in global so scene can access it
@@ -106,6 +159,8 @@ export default function Game() {
         return () => {
             (window as any).updateGameState = null;
             (window as any).onVictory = null;
+            (window as any).onGameOver = null;
+            (window as any).togglePause = null;
             (window as any).selectedCharacters = null;
             gameRef.current?.destroy(true);
             gameRef.current = null;
@@ -132,6 +187,20 @@ export default function Game() {
                     maxHearts={victoryData.maxHearts}
                     characterName={victoryData.characterName}
                     onPlayAgain={handlePlayAgain}
+                />
+            )}
+            {showPause && (
+                <PauseMenu
+                    onResume={handlePauseResume}
+                    onRestart={handlePauseRestart}
+                    onMainMenu={handlePauseMainMenu}
+                />
+            )}
+            {showGameOver && gameOverData && (
+                <GameOverScreen
+                    data={gameOverData}
+                    onRestart={handlePlayAgain}
+                    onMainMenu={handlePauseMainMenu}
                 />
             )}
         </div>
