@@ -4,14 +4,8 @@ import Obstacle from '../entities/Obstacle';
 import Collectible from '../entities/Collectible';
 
 export default class OceanScene extends Phaser.Scene {
-    private player!: Player;
-    private wasdKeys!: {
-        W: Phaser.Input.Keyboard.Key;
-        A: Phaser.Input.Keyboard.Key;
-        S: Phaser.Input.Keyboard.Key;
-        D: Phaser.Input.Keyboard.Key;
-        SPACE: Phaser.Input.Keyboard.Key;
-    };
+    private players: Player[] = [];
+    private controlSets: any[] = [];
     private enemyBoat!: Phaser.GameObjects.Sprite;
     private enemyTruck!: Phaser.GameObjects.Sprite;
     private levelWidth: number = 5000;
@@ -39,8 +33,8 @@ export default class OceanScene extends Phaser.Scene {
     }
 
     create() {
-        // Get selected character from global
-        const selectedCharacter = (window as any).selectedCharacter || 'SmileyFaceBob';
+        // Get selected characters from global
+        const selectedCharacters = (window as any).selectedCharacters || ['SmileyFaceBob'];
         
         // Record game start time
         this.gameStartTime = Date.now() / 1000;
@@ -70,46 +64,99 @@ export default class OceanScene extends Phaser.Scene {
         this.obstacleGroup = this.physics.add.group();
         this.collectibleGroup = this.physics.add.group();
 
-        // Create player with selected character
-        this.player = new Player(this, 200, 360, selectedCharacter);
+        // Create players with selected characters
+        const startX = 200;
+        const startY = 360;
+        selectedCharacters.forEach((characterName: string, index: number) => {
+            const player = new Player(
+                this, 
+                startX, 
+                startY + (index * 50), // Offset each player vertically
+                characterName
+            );
+            this.players.push(player);
+            
+            // Set up collisions for this player
+            this.physics.add.overlap(
+                player.sprite,
+                this.obstacleGroup,
+                (playerSprite: any, obstacleSprite: any) => this.handleObstacleHit(player, obstacleSprite),
+                undefined,
+                this
+            );
+
+            this.physics.add.overlap(
+                player.sprite,
+                this.collectibleGroup,
+                (playerSprite: any, collectibleSprite: any) => this.handleCollectiblePickup(player, collectibleSprite),
+                undefined,
+                this
+            );
+        });
 
         // Create enemy boat
         this.createEnemyBoat();
 
-        // Set up keyboard controls
-        this.wasdKeys = this.input.keyboard!.addKeys({
-            W: Phaser.Input.Keyboard.KeyCodes.W,
-            A: Phaser.Input.Keyboard.KeyCodes.A,
-            S: Phaser.Input.Keyboard.KeyCodes.S,
-            D: Phaser.Input.Keyboard.KeyCodes.D,
-            SPACE: Phaser.Input.Keyboard.KeyCodes.SPACE,
-        }) as any;
+        // Set up keyboard controls for each player
+        this.setupControls();
 
-        // Set up collisions
-        this.physics.add.overlap(
-            this.player.sprite,
-            this.obstacleGroup,
-            this.handleObstacleHit.bind(this),
-            undefined,
-            this
-        );
-
-        this.physics.add.overlap(
-            this.player.sprite,
-            this.collectibleGroup,
-            this.handleCollectiblePickup.bind(this),
-            undefined,
-            this
-        );
-
-        // Set camera to follow player
-        this.cameras.main.setBounds(0, 0, this.levelWidth, 720);
-        this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
-        this.cameras.main.setDeadzone(200, 200);
+        // Set camera to follow players
+        this.setupCamera();
     }
 
     private createHUD() {
         // HUD is now handled by React - no longer needed in Phaser
+    }
+    
+    private setupControls() {
+        // Player 1: WASD + Space
+        if (this.players[0]) {
+            this.controlSets[0] = this.input.keyboard!.addKeys({
+                UP: Phaser.Input.Keyboard.KeyCodes.W,
+                LEFT: Phaser.Input.Keyboard.KeyCodes.A,
+                DOWN: Phaser.Input.Keyboard.KeyCodes.S,
+                RIGHT: Phaser.Input.Keyboard.KeyCodes.D,
+                ABILITY: Phaser.Input.Keyboard.KeyCodes.SPACE,
+            });
+        }
+        
+        // Player 2: Arrow Keys + Enter
+        if (this.players[1]) {
+            this.controlSets[1] = this.input.keyboard!.addKeys({
+                UP: Phaser.Input.Keyboard.KeyCodes.UP,
+                LEFT: Phaser.Input.Keyboard.KeyCodes.LEFT,
+                DOWN: Phaser.Input.Keyboard.KeyCodes.DOWN,
+                RIGHT: Phaser.Input.Keyboard.KeyCodes.RIGHT,
+                ABILITY: Phaser.Input.Keyboard.KeyCodes.ENTER,
+            });
+        }
+        
+        // Player 3: TFGH + Y
+        if (this.players[2]) {
+            this.controlSets[2] = this.input.keyboard!.addKeys({
+                UP: Phaser.Input.Keyboard.KeyCodes.T,
+                LEFT: Phaser.Input.Keyboard.KeyCodes.F,
+                DOWN: Phaser.Input.Keyboard.KeyCodes.G,
+                RIGHT: Phaser.Input.Keyboard.KeyCodes.H,
+                ABILITY: Phaser.Input.Keyboard.KeyCodes.Y,
+            });
+        }
+        
+        // Player 4: IJKL + U
+        if (this.players[3]) {
+            this.controlSets[3] = this.input.keyboard!.addKeys({
+                UP: Phaser.Input.Keyboard.KeyCodes.I,
+                LEFT: Phaser.Input.Keyboard.KeyCodes.J,
+                DOWN: Phaser.Input.Keyboard.KeyCodes.K,
+                RIGHT: Phaser.Input.Keyboard.KeyCodes.L,
+                ABILITY: Phaser.Input.Keyboard.KeyCodes.U,
+            });
+        }
+    }
+    
+    private setupCamera() {
+        this.cameras.main.setBounds(0, 0, this.levelWidth, 720);
+        // Don't use startFollow - we'll manually control camera in update for all modes
     }
 
     private addOceanDetails() {
@@ -187,10 +234,13 @@ export default class OceanScene extends Phaser.Scene {
             this.obstacleGroup.add(obstacle.sprite);
         }
         
-        // Pattern spawn every 1000px
-        if (Math.floor(this.player.sprite.x / 1000) > this.spawnPatternIndex) {
-            this.spawnPatternIndex = Math.floor(this.player.sprite.x / 1000);
-            this.spawnObstaclePattern(camera.scrollX + 800);
+        // Pattern spawn every 1000px (based on lead player position)
+        if (this.players.length > 0) {
+            const leadPlayerX = Math.max(...this.players.map(p => p.sprite.x));
+            if (Math.floor(leadPlayerX / 1000) > this.spawnPatternIndex) {
+                this.spawnPatternIndex = Math.floor(leadPlayerX / 1000);
+                this.spawnObstaclePattern(camera.scrollX + 800);
+            }
         }
     }
 
@@ -225,9 +275,9 @@ export default class OceanScene extends Phaser.Scene {
         }
     }
 
-    private handleObstacleHit(playerSprite: any, obstacleSprite: any) {
+    private handleObstacleHit(player: Player, obstacleSprite: any) {
         const damage = obstacleSprite.getData('damage');
-        this.player.takeDamage(damage);
+        player.takeDamage(damage);
         
         // Destroy obstacle
         const obstacle = this.obstacles.find(o => o.sprite === obstacleSprite);
@@ -237,14 +287,14 @@ export default class OceanScene extends Phaser.Scene {
         }
     }
 
-    private handleCollectiblePickup(playerSprite: any, collectibleSprite: any) {
+    private handleCollectiblePickup(player: Player, collectibleSprite: any) {
         const type = collectibleSprite.getData('type');
         const value = collectibleSprite.getData('value');
         
         if (type === 'bubble') {
-            this.player.collectBubble();
+            player.collectBubble();
         } else {
-            this.player.collectCoin(value);
+            player.collectCoin(value);
         }
         
         // Destroy collectible
@@ -261,8 +311,18 @@ export default class OceanScene extends Phaser.Scene {
             return;
         }
 
-        // Update player
-        this.player.update(this.wasdKeys);
+        // Update all players
+        this.players.forEach((player, index) => {
+            if (this.controlSets[index]) {
+                player.update(this.controlSets[index]);
+            }
+        });
+
+        // Update camera to follow players
+        this.updateCamera();
+        
+        // Constrain all players to stay within camera bounds
+        this.constrainPlayersToCamera();
 
         // Update obstacles
         this.obstacles.forEach(obstacle => obstacle.update());
@@ -291,30 +351,113 @@ export default class OceanScene extends Phaser.Scene {
         // Clean up off-screen objects
         this.cleanupObjects();
 
-        // Check for level completion
-        if (this.player.sprite.x >= this.levelWidth - 500) {
+        // Check for level completion (any ALIVE player reaches end)
+        const anyAlivePlayerAtEnd = this.players.some(p => p.health > 0 && p.sprite.x >= this.levelWidth - 500);
+        if (anyAlivePlayerAtEnd) {
             this.onLevelComplete();
         }
 
-        // Check for game over
-        if (this.player.health <= 0) {
+        // Check for game over (all players dead)
+        const allPlayersDead = this.players.every(p => p.health <= 0);
+        if (allPlayersDead) {
             this.onGameOver();
         }
     }
+    
+    private updateCamera() {
+        // Calculate average position of all alive players
+        const alivePlayers = this.players.filter(p => p.health > 0);
+        if (alivePlayers.length === 0) return;
+        
+        // Find the spread of players
+        const rightmostX = Math.max(...alivePlayers.map(p => p.sprite.x));
+        const leftmostX = Math.min(...alivePlayers.map(p => p.sprite.x));
+        
+        // Camera should show all players
+        // Position camera so leftmost player has some margin from left edge
+        // and rightmost player has margin from right edge
+        const leftMargin = 200;
+        const rightMargin = 200;
+        
+        // Calculate ideal camera position to keep all players visible
+        const idealScrollX = leftmostX - leftMargin;
+        
+        // But also make sure rightmost player isn't too close to right edge
+        const minScrollForRightPlayer = rightmostX - (1280 - rightMargin);
+        
+        // Use the larger of the two (prioritize keeping everyone visible)
+        let targetScrollX = Math.max(idealScrollX, minScrollForRightPlayer);
+        
+        // Camera can only move forward (never backward)
+        targetScrollX = Math.max(targetScrollX, this.cameras.main.scrollX);
+        
+        // Smoothly pan camera to target position
+        const lerpFactor = 0.05; // Slower to encourage players to stay together
+        this.cameras.main.scrollX += (targetScrollX - this.cameras.main.scrollX) * lerpFactor;
+        this.cameras.main.scrollY = 0; // Keep Y fixed for this game
+        
+        // Clamp camera to world bounds
+        this.cameras.main.scrollX = Phaser.Math.Clamp(this.cameras.main.scrollX, 0, this.levelWidth - 1280);
+    }
+    
+    private constrainPlayersToCamera() {
+        // Get camera boundaries with margins
+        const cameraLeft = this.cameras.main.scrollX + 100;
+        const cameraRight = this.cameras.main.scrollX + 1280 - 100;
+        const cameraTop = this.oceanSurface;
+        const cameraBottom = this.oceanFloor;
+        
+        // Keep all players within camera bounds
+        this.players.forEach(player => {
+            if (player.health <= 0) return; // Don't constrain dead players
+            
+            let constrained = false;
+            
+            // Constrain horizontally
+            if (player.sprite.x < cameraLeft) {
+                player.sprite.x = cameraLeft;
+                player.sprite.setVelocityX(Math.max(0, player.sprite.body.velocity.x)); // Can't go left
+                constrained = true;
+            } else if (player.sprite.x > cameraRight) {
+                player.sprite.x = cameraRight;
+                player.sprite.setVelocityX(Math.min(0, player.sprite.body.velocity.x)); // Can't go right
+                constrained = true;
+            }
+            
+            // Vertical bounds are already handled by Player class (ocean surface/floor)
+            
+            // Visual feedback when hitting boundary
+            if (constrained) {
+                player.sprite.setTint(0xffff00); // Yellow flash
+                this.time.delayedCall(100, () => {
+                    // Clear tint unless it's CrazyDuck with speed tint
+                    const crazyDuckTints = [0x8888ff, 0xff8888];
+                    if (player.characterName !== 'CrazyDuck' || !crazyDuckTints.includes(player.sprite.tint as number)) {
+                        player.sprite.clearTint();
+                    }
+                });
+            }
+        });
+    }
 
     private updateHUD() {
-        // Update React HUD using global callback
-        if ((window as any).updateGameState) {
+        // Update React HUD using global callback - send all players' data
+        if ((window as any).updateGameState && this.players.length > 0) {
+            // Get lead player for distance
+            const leadPlayerX = Math.max(...this.players.map(p => p.sprite.x));
+            
             (window as any).updateGameState({
-                health: this.player.health,
-                maxHealth: this.player.maxHealth,
-                coins: this.player.coins,
-                air: this.player.air,
-                maxAir: this.player.maxAir,
-                distance: Math.floor(this.player.sprite.x / 10),
+                players: this.players.map(player => ({
+                    health: player.health,
+                    maxHealth: player.maxHealth,
+                    coins: player.coins,
+                    air: player.air,
+                    maxAir: player.maxAir,
+                    characterName: player.characterName,
+                    speedMode: player.characterName === 'CrazyDuck' ? player.getSpeedModeName() : undefined,
+                })),
+                distance: Math.floor(leadPlayerX / 10),
                 maxDistance: this.levelWidth / 10,
-                characterName: this.player.characterName,
-                speedMode: this.player.characterName === 'CrazyDuck' ? this.player.getSpeedModeName() : undefined,
             });
         }
     }
@@ -345,25 +488,38 @@ export default class OceanScene extends Phaser.Scene {
         if (this.levelComplete) return;
         this.levelComplete = true;
         
-        // Stop player movement
-        this.player.sprite.setVelocity(0, 0);
+        // Stop all alive players movement
+        this.players.forEach(player => {
+            if (player.health > 0) {
+                player.sprite.setVelocity(0, 0);
+            }
+        });
         
         // Animate boat -> truck transformation
         this.transformBoatToTruck();
         
-        // Calculate stats
+        // Calculate stats (only count surviving players)
         const timeElapsed = Date.now() / 1000 - this.gameStartTime;
+        const alivePlayers = this.players.filter(p => p.health > 0);
+        const totalCoins = this.players.reduce((sum, p) => sum + p.coins, 0); // All coins count
+        const totalHeartsRemaining = alivePlayers.reduce((sum, p) => sum + p.health, 0); // Only alive
+        const totalMaxHearts = alivePlayers.reduce((sum, p) => sum + p.maxHealth, 0); // Only alive
+        const survivorCount = alivePlayers.length;
         
         // Delay showing victory screen until after transformation (2 seconds)
         this.time.delayedCall(2000, () => {
             // Notify React to show victory screen
             if ((window as any).onVictory) {
+                const characterDisplay = this.players.length > 1 
+                    ? `${survivorCount}/${this.players.length} Players Survived` 
+                    : this.players[0].characterName;
+                    
                 (window as any).onVictory({
-                    coins: this.player.coins,
+                    coins: totalCoins,
                     timeElapsed: timeElapsed,
-                    heartsRemaining: this.player.health,
-                    maxHearts: this.player.maxHealth,
-                    characterName: this.player.characterName,
+                    heartsRemaining: totalHeartsRemaining,
+                    maxHearts: totalMaxHearts,
+                    characterName: characterDisplay,
                 });
             }
         });

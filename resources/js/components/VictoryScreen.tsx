@@ -27,27 +27,27 @@ const VictoryScreen: React.FC<VictoryScreenProps> = ({
                 <h1 className="text-5xl font-bold text-green-800 mb-6 drop-shadow-lg">
                     🎉 VICTORY! 🎉
                 </h1>
-                
+
                 <div className="bg-white bg-opacity-90 rounded-lg p-6 mb-6">
                     <p className="text-2xl font-semibold text-gray-800 mb-4">
                         {characterName} reached the grassland!
                     </p>
-                    
+
                     <div className="space-y-3 text-left">
                         <div className="flex justify-between items-center border-b-2 border-gray-300 pb-2">
                             <span className="text-lg font-medium text-gray-700">🪙 Coins Collected:</span>
                             <span className="text-2xl font-bold text-yellow-600">{coins}</span>
                         </div>
-                        
+
                         <div className="flex justify-between items-center border-b-2 border-gray-300 pb-2">
                             <span className="text-lg font-medium text-gray-700">⏱️ Time:</span>
                             <span className="text-2xl font-bold text-blue-600">{timeString}</span>
                         </div>
-                        
+
                         <div className="flex justify-between items-center border-b-2 border-gray-300 pb-2">
                             <span className="text-lg font-medium text-gray-700">❤️ Hearts Left:</span>
                             <span className="text-2xl font-bold text-red-600">
-                                {heartsRemaining} / {maxHearts}
+                                {Math.floor(heartsRemaining)} / {maxHearts}
                             </span>
                         </div>
                     </div>
@@ -60,7 +60,7 @@ const VictoryScreen: React.FC<VictoryScreenProps> = ({
                     >
                         🔄 Play Again
                     </button>
-                    
+
                     <p className="text-sm text-green-900 italic">
                         The enemy escaped with the golden banana... for now! 🍌
                     </p>

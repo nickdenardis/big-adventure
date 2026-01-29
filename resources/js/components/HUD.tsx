@@ -1,150 +1,107 @@
 import React from 'react';
 
-interface HUDProps {
+interface PlayerState {
     health: number;
     maxHealth: number;
     coins: number;
     air: number;
     maxAir: number;
-    distance: number;
-    maxDistance: number;
     characterName: string;
     speedMode?: string;
 }
 
-export default function HUD({
-    health,
-    maxHealth,
-    coins,
-    air,
-    maxAir,
-    distance,
-    maxDistance,
-    characterName,
-    speedMode,
-}: HUDProps) {
-    const healthPercentage = (health / maxHealth) * 100;
-    const airPercentage = (air / maxAir) * 100;
-    const distancePercentage = (distance / maxDistance) * 100;
+interface HUDProps {
+    players: PlayerState[];
+    distance: number;
+    maxDistance: number;
+}
 
-    // Calculate full hearts and partial heart
-    const fullHearts = Math.floor(health);
-    const hasHalfHeart = health % 1 >= 0.5;
+function PlayerCard({ player, playerNumber }: { player: PlayerState; playerNumber: number }) {
+    const fullHearts = Math.floor(player.health);
+    const hasHalfHeart = player.health % 1 >= 0.5;
+    const airPercentage = (player.air / player.maxAir) * 100;
+    const isDead = player.health <= 0;
+
+    return (
+        <div className={`bg-black/70 backdrop-blur-sm rounded-lg p-3 text-white space-y-2 min-w-[200px] relative ${isDead ? 'opacity-50' : ''}`}>
+            {/* Dead Overlay */}
+            {isDead && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+                    <div className="text-6xl text-red-500 font-bold">✗</div>
+                </div>
+            )}
+            
+            <div className="flex items-center gap-2">
+                <div className={`font-bold rounded-full w-6 h-6 flex items-center justify-center text-sm ${isDead ? 'bg-gray-500 text-gray-300' : 'bg-yellow-400 text-black'}`}>
+                    P{playerNumber}
+                </div>
+                <div className={`text-lg font-bold ${isDead ? 'text-gray-500 line-through' : 'text-yellow-400'}`}>
+                    {player.characterName}
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+                <span className="text-xs text-red-300">HP:</span>
+                <div className="flex gap-0.5">
+                    {isDead ? (
+                        <span className="text-gray-600">💀 DEAD</span>
+                    ) : (
+                        <>
+                            {Array.from({ length: fullHearts }).map((_, i) => (
+                                <span key={i} className="text-red-500">❤️</span>
+                            ))}
+                            {hasHalfHeart && <span className="text-red-500">💔</span>}
+                            {Array.from({ length: player.maxHealth - fullHearts - (hasHalfHeart ? 1 : 0) }).map((_, i) => (
+                                <span key={`empty-${i}`} className="text-gray-600">🖤</span>
+                            ))}
+                        </>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+                <span className="text-yellow-300">🪙 Coins:</span>
+                <span className={`font-bold ${isDead ? 'text-gray-500' : 'text-yellow-400'}`}>{player.coins}</span>
+            </div>
+
+            <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                    <span className="text-cyan-300">💨 Air:</span>
+                    <span className={isDead ? 'text-gray-500' : 'text-cyan-300'}>{isDead ? '0%' : `${Math.floor(airPercentage)}%`}</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                    <div
+                        className={`h-full rounded-full transition-all ${
+                            isDead ? 'bg-gray-600' :
+                            airPercentage > 50
+                                ? 'bg-cyan-400'
+                                : airPercentage > 20
+                                ? 'bg-yellow-400'
+                                : 'bg-red-500'
+                        }`}
+                        style={{ width: isDead ? '0%' : `${Math.floor(airPercentage)}%` }}
+                    />
+                </div>
+            </div>
+
+            {player.speedMode && !isDead && (
+                <div className="text-xs text-purple-300 font-semibold text-center">
+                    ⚡ {player.speedMode}
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default function HUD({ players, distance, maxDistance }: HUDProps) {
+    const distancePercentage = (distance / maxDistance) * 100;
 
     return (
         <div className="fixed inset-0 pointer-events-none z-50">
-            {/* Top Left - Player Info */}
-            <div className="absolute top-4 left-4 pointer-events-auto">
-                <div className="bg-black/70 backdrop-blur-sm rounded-lg p-4 text-white space-y-2 min-w-[250px]">
-                    {/* Character Name */}
-                    <div className="text-xl font-bold text-yellow-400 mb-2">
-                        {characterName}
-                    </div>
-
-                    {/* Health */}
-                    <div className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-red-300">Health</span>
-                            <span className="text-red-300">
-                                {Math.floor(health)}/{maxHealth}
-                            </span>
-                        </div>
-                        <div className="flex gap-1">
-                            {Array.from({ length: maxHealth }).map((_, i) => (
-                                <div
-                                    key={i}
-                                    className={`w-6 h-6 ${
-                                        i < fullHearts
-                                            ? 'text-red-500'
-                                            : i === fullHearts && hasHalfHeart
-                                              ? 'text-red-300'
-                                              : 'text-gray-600'
-                                    }`}
-                                >
-                                    {i < fullHearts ? '♥' : i === fullHearts && hasHalfHeart ? '♡' : '♡'}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Coins */}
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <span className="text-2xl">🪙</span>
-                            <span className="text-xl font-bold text-yellow-400">{coins}</span>
-                            <span className="text-sm text-yellow-300">Coins</span>
-                        </div>
-                    </div>
-
-                    {/* Air Meter */}
-                    <div className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-blue-300">Air</span>
-                            <span className="text-blue-300">{Math.floor(air)}%</span>
-                        </div>
-                        <div className="relative w-full bg-gray-700 rounded-full h-3 overflow-hidden">
-                            <div
-                                className={`h-full transition-all duration-200 ${
-                                    airPercentage > 50
-                                        ? 'bg-blue-400'
-                                        : airPercentage > 25
-                                          ? 'bg-yellow-400'
-                                          : 'bg-red-500'
-                                }`}
-                                style={{
-                                    width: `${Math.floor(airPercentage)}%`,
-                                    maxWidth: '100%'
-                                }}
-                            />
-                        </div>
-                        {air < 25 && (
-                            <div className="text-xs text-red-400 animate-pulse">
-                                ⚠️ Low Air! Surface or find bubbles!
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Character Ability */}
-                    <div className="text-xs text-cyan-300 border-t border-gray-600 pt-2">
-                        <strong>Ability:</strong>{' '}
-                        {characterName === 'SmileyFaceBob' && 'Double Coins 💰'}
-                        {characterName === 'Cutie' && 'Share Health ❤️ (Space)'}
-                        {characterName === 'ChillDuck' && 'Double Health 💪'}
-                        {characterName === 'CrazyDuck' && (
-                            <span>
-                                Speed: <span className={`font-bold ${
-                                    speedMode === 'Slow' ? 'text-blue-400' :
-                                    speedMode === 'Fast' ? 'text-red-400' :
-                                    'text-yellow-400'
-                                }`}>{speedMode || 'Normal'}</span> ⚡ (Space)
-                            </span>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Top Right - Level Progress */}
-            <div className="absolute top-4 right-4 pointer-events-auto">
-                <div className="bg-black/70 backdrop-blur-sm rounded-lg p-4 text-white min-w-[200px]">
-                    <div className="text-sm text-gray-300 mb-2">Level Progress</div>
-                    <div className="space-y-2">
-                        <div className="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
-                            <div
-                                className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
-                                style={{ width: `${distancePercentage}%` }}
-                            />
-                        </div>
-                        <div className="text-xs text-center text-gray-300">
-                            {distance}m / {maxDistance}m
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Game Title */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-auto">
+            {/* Top Center - Game Title */}
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 pointer-events-auto">
                 <div className="bg-black/70 backdrop-blur-sm rounded-lg px-6 py-2">
-                    <h1 className="text-2xl font-bold text-white">
+                    <h1 className="text-2xl font-bold text-white text-center">
                         THE BIG ADVENTURE
                     </h1>
                     <p className="text-sm text-center text-yellow-400">
@@ -153,13 +110,37 @@ export default function HUD({
                 </div>
             </div>
 
-            {/* Controls Helper (Bottom) */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
-                <div className="bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2">
-                    <div className="text-xs text-gray-300 text-center">
-                        <strong className="text-white">Controls:</strong> WASD to swim
-                        {' • '}
-                        Surface for air or collect bubbles 💭
+            {/* Top Left - Players 1 & 2 */}
+            <div className="absolute top-4 left-4 space-y-3 pointer-events-auto">
+                {players[0] && <PlayerCard player={players[0]} playerNumber={1} />}
+                {players[1] && <PlayerCard player={players[1]} playerNumber={2} />}
+            </div>
+
+            {/* Top Right - Players 3 & 4 */}
+            <div className="absolute top-4 right-4 space-y-3 pointer-events-auto">
+                {players[2] && <PlayerCard player={players[2]} playerNumber={3} />}
+                {players[3] && <PlayerCard player={players[3]} playerNumber={4} />}
+            </div>
+
+            {/* Bottom Center - Progress Meter */}
+            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 pointer-events-auto">
+                <div className="bg-black/70 backdrop-blur-sm rounded-lg p-4 text-white min-w-[400px]">
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-green-300 font-semibold">Level Progress</span>
+                            <span className="text-green-300 font-bold">
+                                {Math.floor(distancePercentage)}%
+                            </span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                            <div
+                                className="h-full bg-gradient-to-r from-green-500 to-yellow-400 rounded-full transition-all"
+                                style={{ width: `${Math.floor(distancePercentage)}%` }}
+                            />
+                        </div>
+                        <div className="text-xs text-gray-400 text-center">
+                            Chase the golden banana! 🍌
+                        </div>
                     </div>
                 </div>
             </div>

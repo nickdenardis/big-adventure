@@ -5,16 +5,20 @@ import HUD from './HUD';
 import CharacterSelect from './CharacterSelect';
 import VictoryScreen from './VictoryScreen';
 
-interface GameState {
+interface PlayerState {
     health: number;
     maxHealth: number;
     coins: number;
     air: number;
     maxAir: number;
-    distance: number;
-    maxDistance: number;
     characterName: string;
     speedMode?: string;
+}
+
+interface GameState {
+    players: PlayerState[];
+    distance: number;
+    maxDistance: number;
 }
 
 interface VictoryData {
@@ -33,22 +37,17 @@ export default function Game() {
     const gameRef = useRef<Phaser.Game | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [showCharacterSelect, setShowCharacterSelect] = useState(true);
-    const [selectedCharacter, setSelectedCharacter] = useState<string>('SmileyFaceBob');
+    const [selectedCharacters, setSelectedCharacters] = useState<string[]>(['SmileyFaceBob']);
     const [showVictory, setShowVictory] = useState(false);
     const [victoryData, setVictoryData] = useState<VictoryData | null>(null);
     const [gameState, setGameState] = useState<GameState>({
-        health: 5,
-        maxHealth: 5,
-        coins: 0,
-        air: 100,
-        maxAir: 100,
+        players: [],
         distance: 0,
         maxDistance: 500,
-        characterName: 'SmileyFaceBob',
     });
 
-    const handleStartGame = (character: string) => {
-        setSelectedCharacter(character);
+    const handleStartGame = (characters: string[]) => {
+        setSelectedCharacters(characters);
         setShowCharacterSelect(false);
         setShowVictory(false);
         setVictoryData(null);
@@ -84,7 +83,7 @@ export default function Game() {
         };
 
         // Store selected character in global so scene can access it
-        (window as any).selectedCharacter = selectedCharacter;
+        (window as any).selectedCharacters = selectedCharacters;
 
         const config: Phaser.Types.Core.GameConfig = {
             type: Phaser.AUTO,
@@ -107,11 +106,11 @@ export default function Game() {
         return () => {
             (window as any).updateGameState = null;
             (window as any).onVictory = null;
-            (window as any).selectedCharacter = null;
+            (window as any).selectedCharacters = null;
             gameRef.current?.destroy(true);
             gameRef.current = null;
         };
-    }, [showCharacterSelect, selectedCharacter]);
+    }, [showCharacterSelect, selectedCharacters]);
 
     if (showCharacterSelect) {
         return <CharacterSelect onStart={handleStartGame} />;
@@ -121,15 +120,9 @@ export default function Game() {
         <div className="relative">
             <div ref={containerRef} className="game-container" />
             <HUD
-                health={gameState.health}
-                maxHealth={gameState.maxHealth}
-                coins={gameState.coins}
-                air={gameState.air}
-                maxAir={gameState.maxAir}
+                players={gameState.players}
                 distance={gameState.distance}
                 maxDistance={gameState.maxDistance}
-                characterName={gameState.characterName}
-                speedMode={gameState.speedMode}
             />
             {showVictory && victoryData && (
                 <VictoryScreen

@@ -153,27 +153,27 @@ export default class Player {
     }
 
     update(keys: {
-        W?: Phaser.Input.Keyboard.Key;
-        A?: Phaser.Input.Keyboard.Key;
-        S?: Phaser.Input.Keyboard.Key;
-        D?: Phaser.Input.Keyboard.Key;
-        SPACE?: Phaser.Input.Keyboard.Key;
+        UP?: Phaser.Input.Keyboard.Key;
+        LEFT?: Phaser.Input.Keyboard.Key;
+        DOWN?: Phaser.Input.Keyboard.Key;
+        RIGHT?: Phaser.Input.Keyboard.Key;
+        ABILITY?: Phaser.Input.Keyboard.Key;
     }) {
         // Reset velocity
         let velocityX = 0;
         let velocityY = 0;
 
         // 8-directional swimming movement
-        if (keys.W?.isDown) {
+        if (keys.UP?.isDown) {
             velocityY = -this.swimSpeed;
         }
-        if (keys.S?.isDown) {
+        if (keys.DOWN?.isDown) {
             velocityY = this.swimSpeed;
         }
-        if (keys.A?.isDown) {
+        if (keys.LEFT?.isDown) {
             velocityX = -this.swimSpeed;
         }
-        if (keys.D?.isDown) {
+        if (keys.RIGHT?.isDown) {
             velocityX = this.swimSpeed;
         }
 
@@ -224,7 +224,7 @@ export default class Player {
         }
 
         // Character-specific abilities (handle key presses with cooldown)
-        if (keys.SPACE && Phaser.Input.Keyboard.JustDown(keys.SPACE)) {
+        if (keys.ABILITY && Phaser.Input.Keyboard.JustDown(keys.ABILITY)) {
             this.useAbility();
         }
     }
@@ -296,9 +296,15 @@ export default class Player {
     }
 
     takeDamage(amount: number) {
-        if (this.isInvincible) return;
+        if (this.isInvincible || this.health <= 0) return; // Don't damage if already dead
 
         this.health = Math.max(0, this.health - amount);
+        
+        // Check if player just died
+        if (this.health <= 0) {
+            this.die();
+            return;
+        }
         
         // Make invincible temporarily
         if (amount >= 1) {
@@ -317,6 +323,29 @@ export default class Player {
                 }
             });
         }
+    }
+    
+    private die() {
+        // Death animation
+        this.scene.tweens.add({
+            targets: this.sprite,
+            alpha: 0,
+            angle: 360,
+            scale: 0.5,
+            duration: 500,
+            ease: 'Power2',
+            onComplete: () => {
+                this.sprite.setVisible(false);
+                this.sprite.setActive(false);
+            }
+        });
+        
+        // Create floating death text
+        this.createFloatingText('DEAD', 0xff0000, 32);
+    }
+    
+    public isDead(): boolean {
+        return this.health <= 0;
     }
 
     collectCoin(amount: number) {
